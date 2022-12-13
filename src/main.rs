@@ -1,7 +1,6 @@
-use secrecy::Secret;
+use servare::configuration::get_configuration;
 use servare::startup::get_connection_pool;
-use servare::startup::DashboardApplication;
-use std::str::FromStr;
+use servare::startup::Application;
 
 fn main() -> anyhow::Result<()> {
     // Build the Tokio runtime
@@ -15,14 +14,12 @@ fn main() -> anyhow::Result<()> {
         .unwrap();
     let _runtime_guard = runtime.enter();
 
-    // TODO(vincent): replace me
-    let connection_string =
-        Secret::from_str("postgresql://vincent:vincent@localhost/servare_tests")?;
+    let configuration = get_configuration()?;
 
-    let dashboard_pool = runtime.block_on(get_connection_pool(connection_string));
-    let dashboard_app = DashboardApplication::build_with_pool(dashboard_pool)?;
+    let pool = runtime.block_on(get_connection_pool(&configuration.database));
+    let app = Application::build_with_pool(pool)?;
 
-    let future = dashboard_app.run_until_stopped();
+    let future = app.run_until_stopped();
 
     println!("running dashboard app");
 

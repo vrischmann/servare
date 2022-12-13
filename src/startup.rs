@@ -1,6 +1,7 @@
+use crate::configuration::DatabaseSettings;
 use axum::routing::IntoMakeService;
 use hyper::server::conn::AddrIncoming;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::time::Duration;
@@ -17,21 +18,21 @@ pub enum Error {
 
 type Server = axum::Server<AddrIncoming, IntoMakeService<axum::Router>>;
 
-pub struct DashboardApplication {
+pub struct Application {
     pub port: u16,
     pub pool: sqlx::PgPool,
     server: Server,
 }
 
-impl DashboardApplication {
-    pub fn build_with_pool(pool: sqlx::PgPool) -> Result<DashboardApplication, Error> {
+impl Application {
+    pub fn build_with_pool(pool: sqlx::PgPool) -> Result<Application, Error> {
         let listener = std::net::TcpListener::bind(&format!("{}:{}", "127.0.0.1", 4052))
             .map_err(Into::<Error>::into)?;
         let port = listener.local_addr().unwrap().port();
 
         let server: Server = create_server(listener)?;
 
-        Ok(DashboardApplication { port, pool, server })
+        Ok(Application { port, pool, server })
     }
 
     pub async fn run_until_stopped(self) -> Result<(), Error> {
@@ -63,11 +64,11 @@ fn create_server(listener: std::net::TcpListener) -> Result<Server, anyhow::Erro
     Ok(web_server)
 }
 
-pub async fn get_connection_pool(connection_string: Secret<String>) -> PgPool {
+pub async fn get_connection_pool(settings: &DatabaseSettings) -> PgPool {
     PgPoolOptions::new()
         .max_connections(1024)
         .acquire_timeout(Duration::from_secs(1))
-        .connect(connection_string.expose_secret())
+        .connect(settings.connection_string().expose_secret())
         .await
         .expect("Failed to connect to PostgreSQL")
 }
