@@ -50,13 +50,11 @@ async fn foobar() -> impl axum::response::IntoResponse {
 }
 
 fn create_server(listener: std::net::TcpListener) -> Result<Server, anyhow::Error> {
-    let state = ();
-
     let web_app = axum::Router::new()
         .route("/foobar", axum::routing::get(foobar))
         .fallback(fallback_handler)
         .layer(tower_http::trace::TraceLayer::new_for_http())
-        .with_state(state);
+        .with_state(());
 
     let web_server_builder = axum::Server::from_tcp(listener)?;
 
