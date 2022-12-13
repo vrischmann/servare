@@ -1,3 +1,9 @@
+[application]
+worker_threads = 4
+host = "127.0.0.1"
+port = 4052
+base_url = "http://127.0.0.1"
+
 [database]
 username = "vincent"
 password = "vincent"
