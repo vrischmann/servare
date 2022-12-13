@@ -20,3 +20,9 @@ anyhow = "1"
 
 # SQL on steroids
 sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "time", "migrate", "offline"] }
+
+# HTTP stuff
+tokio = { version = "1.2", features = ["signal", "macros"] }
+axum = { version = "0.6", default-features = false, features = ["tokio", "http1"] }
+tower-http = { version = "0.3", features = ["trace"] }
+http = "0.2"
