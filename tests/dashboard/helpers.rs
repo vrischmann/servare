@@ -1,8 +1,7 @@
-use secrecy::Secret;
+use servare::configuration::get_configuration;
 use servare::startup::get_connection_pool;
-use servare::startup::DashboardApplication;
+use servare::startup::Application;
 use sqlx::PgPool;
-use std::str::FromStr;
 
 pub struct TestApp {
     pub address: String,
@@ -26,19 +25,21 @@ impl TestApp {
 }
 
 pub async fn spawn_app() -> TestApp {
-    let connection_string =
-        Secret::from_str("postgresql://vincent:vincent@localhost/servare_tests").unwrap();
+    let config = get_configuration().expect("Failed to get configuration");
 
-    let pool = get_connection_pool(connection_string).await;
+    let pool = get_connection_pool(&config.database).await;
 
     spawn_app_with_pool(pool).await
 }
 
 pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
+    let configuration = get_configuration().expect("Failed to get configuration");
+
     // Build the application
     let app_pool = pool.clone();
 
-    let app = DashboardApplication::build_with_pool(app_pool).expect("Failed to build application");
+    let app = Application::build(&configuration.application, app_pool)
+        .expect("Failed to build application");
     let app_port = app.port;
 
     let _ = tokio::spawn(app.run_until_stopped());
