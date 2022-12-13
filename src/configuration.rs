@@ -1,7 +1,15 @@
 use secrecy::{ExposeSecret, Secret};
 
 #[derive(Clone, Debug, serde::Deserialize)]
-pub struct DatabaseSettings {
+pub struct ApplicationConfig {
+    pub worker_threads: usize,
+    pub host: String,
+    pub port: usize,
+    pub base_url: String,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct DatabaseConfig {
     pub username: String,
     pub password: Secret<String>,
     pub port: u16,
@@ -9,7 +17,7 @@ pub struct DatabaseSettings {
     pub name: String,
 }
 
-impl DatabaseSettings {
+impl DatabaseConfig {
     pub fn connection_string(&self) -> Secret<String> {
         Secret::new(format!(
             "postgres://{}:{}@{}:{}/{}",
@@ -23,12 +31,13 @@ impl DatabaseSettings {
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
-pub struct Settings {
-    pub database: DatabaseSettings,
+pub struct Config {
+    pub application: ApplicationConfig,
+    pub database: DatabaseConfig,
 }
 
-pub fn get_configuration() -> Result<Settings, config::ConfigError> {
-    let settings = config::Config::builder()
+pub fn get_configuration() -> Result<Config, config::ConfigError> {
+    let config_reader = config::Config::builder()
         .add_source(
             config::File::new("configuration.toml", config::FileFormat::Toml).required(false),
         )
@@ -42,5 +51,5 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         )
         .build()?;
 
-    settings.try_deserialize::<Settings>()
+    config_reader.try_deserialize::<Config>()
 }

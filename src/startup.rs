@@ -1,4 +1,4 @@
-use crate::configuration::DatabaseSettings;
+use crate::configuration::{ApplicationConfig, DatabaseConfig};
 use axum::routing::IntoMakeService;
 use hyper::server::conn::AddrIncoming;
 use secrecy::ExposeSecret;
@@ -25,8 +25,8 @@ pub struct Application {
 }
 
 impl Application {
-    pub fn build_with_pool(pool: sqlx::PgPool) -> Result<Application, Error> {
-        let listener = std::net::TcpListener::bind(&format!("{}:{}", "127.0.0.1", 4052))
+    pub fn build(config: &ApplicationConfig, pool: PgPool) -> Result<Application, Error> {
+        let listener = std::net::TcpListener::bind(&format!("{}:{}", config.host, config.port))
             .map_err(Into::<Error>::into)?;
         let port = listener.local_addr().unwrap().port();
 
@@ -64,11 +64,11 @@ fn create_server(listener: std::net::TcpListener) -> Result<Server, anyhow::Erro
     Ok(web_server)
 }
 
-pub async fn get_connection_pool(settings: &DatabaseSettings) -> PgPool {
+pub async fn get_connection_pool(config: &DatabaseConfig) -> PgPool {
     PgPoolOptions::new()
         .max_connections(1024)
         .acquire_timeout(Duration::from_secs(1))
-        .connect(settings.connection_string().expose_secret())
+        .connect(config.connection_string().expose_secret())
         .await
         .expect("Failed to connect to PostgreSQL")
 }
