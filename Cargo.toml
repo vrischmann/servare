@@ -29,6 +29,7 @@ http = "0.2"
 hyper = "0.14"
 
 # Other stuff
+time = "0.3"
 secrecy = { version = "0.8", features = ["serde"] }
 config = { version = "0.13", default-features = false, features = ["toml"] }
 
