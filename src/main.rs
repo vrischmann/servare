@@ -23,7 +23,7 @@ fn main() -> anyhow::Result<()> {
     println!("running dashboard app");
 
     // Run the app future until done
-    let _ = runtime.block_on(future);
+    runtime.block_on(future)?;
 
     Ok(())
 }
