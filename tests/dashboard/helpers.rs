@@ -12,10 +12,21 @@ pub struct TestApp {
 }
 
 impl TestApp {
-    pub async fn get_foobar_html(&self) -> String {
+    pub async fn get_home_html(&self) -> String {
         let response = self
             .http_client
-            .get(&format!("{}/foobar", &self.address))
+            .get(&self.address)
+            .send()
+            .await
+            .expect("Failed to execute request.");
+
+        response.text().await.unwrap()
+    }
+
+    pub async fn get_login_html(&self) -> String {
+        let response = self
+            .http_client
+            .get(&format!("{}/login", self.address))
             .send()
             .await
             .expect("Failed to execute request.");
