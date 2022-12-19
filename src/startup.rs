@@ -26,7 +26,7 @@ pub struct Application {
 
 impl Application {
     pub fn build(config: &ApplicationConfig, pool: PgPool) -> Result<Application, Error> {
-        let listener = std::net::TcpListener::bind(&format!("{}:{}", config.host, config.port))
+        let listener = std::net::TcpListener::bind(format!("{}:{}", config.host, config.port))
             .map_err(Into::<Error>::into)?;
         let port = listener.local_addr().unwrap().port();
 
