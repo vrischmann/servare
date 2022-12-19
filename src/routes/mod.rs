@@ -24,14 +24,10 @@ impl IntoResponse for Error {
 
 #[derive(askama::Template)]
 #[template(path = "home.html.j2")]
-struct HomeTemplate {
-    pub title: String,
-}
+struct HomeTemplate {}
 
 pub async fn home() -> Result<Html<String>, Error> {
-    let tpl = HomeTemplate {
-        title: "Home page".to_string(),
-    };
+    let tpl = HomeTemplate {};
 
     let response = Html(tpl.render()?);
 
