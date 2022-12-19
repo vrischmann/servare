@@ -1,10 +1,13 @@
 use crate::configuration::{ApplicationConfig, DatabaseConfig};
+use crate::routes;
+use axum::response::IntoResponse;
 use axum::routing::IntoMakeService;
 use hyper::server::conn::AddrIncoming;
 use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::time::Duration;
+use tracing::error;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -46,13 +49,25 @@ async fn fallback_handler() -> (http::StatusCode, String) {
     (http::StatusCode::NOT_FOUND, "Page Not Found".to_owned())
 }
 
-async fn foobar() -> impl axum::response::IntoResponse {
-    "foobar".to_string()
+async fn error_handler(err: std::io::Error) -> impl IntoResponse {
+    error!(err = ?err, "got error");
+
+    (
+        http::StatusCode::NOT_FOUND,
+        "Internal Server Error".to_owned(),
+    )
 }
 
 fn create_server(listener: std::net::TcpListener) -> Result<Server, anyhow::Error> {
+    // Serves the static files
+    let static_service = {
+        let serve_dir = tower_http::services::ServeDir::new("static");
+        axum::routing::get_service(serve_dir).handle_error(error_handler)
+    };
+
     let web_app = axum::Router::new()
-        .route("/foobar", axum::routing::get(foobar))
+        .route("/", axum::routing::get(routes::home))
+        .nest_service("/static", static_service)
         .fallback(fallback_handler)
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(());

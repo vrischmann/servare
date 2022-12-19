@@ -26,7 +26,13 @@ fn main() -> anyhow::Result<()> {
 
     let future = app.run_until_stopped();
 
-    info!("running dashboard app");
+    info!(
+        url = format!(
+            "{}:{}",
+            config.application.base_url, config.application.port
+        ),
+        "running dashboard app"
+    );
 
     // Run the app future until done
     runtime.block_on(future)?;
