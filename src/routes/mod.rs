@@ -4,6 +4,8 @@ use axum::response::Html;
 use axum::response::IntoResponse;
 use axum::response::Response;
 
+pub mod login;
+
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]

@@ -1,6 +1,7 @@
 use crate::configuration::{ApplicationConfig, DatabaseConfig};
 use crate::routes;
 use axum::response::IntoResponse;
+use axum::routing;
 use axum::routing::IntoMakeService;
 use hyper::server::conn::AddrIncoming;
 use secrecy::ExposeSecret;
@@ -59,15 +60,17 @@ async fn error_handler(err: std::io::Error) -> impl IntoResponse {
 }
 
 fn create_server(listener: std::net::TcpListener) -> Result<Server, anyhow::Error> {
-    // Serves the static files
-    let static_service = {
-        let serve_dir = tower_http::services::ServeDir::new("static");
+    // Serves the assets from disk
+    let assets_service = {
+        let serve_dir = tower_http::services::ServeDir::new("assets");
         axum::routing::get_service(serve_dir).handle_error(error_handler)
     };
 
     let web_app = axum::Router::new()
-        .route("/", axum::routing::get(routes::home))
-        .nest_service("/static", static_service)
+        .route("/", routing::get(routes::home))
+        .route("/login", routing::get(routes::login::form))
+        .route("/login", routing::post(routes::login::submit))
+        .nest_service("/assets", assets_service)
         .fallback(fallback_handler)
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(());
