@@ -1,8 +1,14 @@
 use servare::configuration::get_configuration;
 use servare::startup::get_connection_pool;
 use servare::startup::Application;
+use tracing::info;
+
+mod telemetry;
 
 fn main() -> anyhow::Result<()> {
+    let subscriber = telemetry::get_subscriber("servare".into(), "info".into(), std::io::stdout);
+    telemetry::init_global_default(subscriber);
+
     let config = get_configuration()?;
 
     // Build the Tokio runtime
@@ -20,7 +26,7 @@ fn main() -> anyhow::Result<()> {
 
     let future = app.run_until_stopped();
 
-    println!("running dashboard app");
+    info!("running dashboard app");
 
     // Run the app future until done
     runtime.block_on(future)?;
