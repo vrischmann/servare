@@ -33,7 +33,8 @@ pub async fn spawn_app() -> TestApp {
 }
 
 pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
-    let configuration = get_configuration().expect("Failed to get configuration");
+    let mut configuration = get_configuration().expect("Failed to get configuration");
+    configuration.application.port = 0;
 
     // Build the application
     let app_pool = pool.clone();
