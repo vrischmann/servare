@@ -66,10 +66,13 @@ fn create_server(listener: std::net::TcpListener) -> Result<Server, anyhow::Erro
         axum::routing::get_service(serve_dir).handle_error(error_handler)
     };
 
+    let login_router = axum::Router::new()
+        .route("/", routing::get(routes::login::form))
+        .route("/", routing::post(routes::login::submit));
+
     let web_app = axum::Router::new()
         .route("/", routing::get(routes::home))
-        .route("/login", routing::get(routes::login::form))
-        .route("/login", routing::post(routes::login::submit))
+        .nest("/login", login_router)
         .nest_service("/assets", assets_service)
         .fallback(fallback_handler)
         .layer(tower_http::trace::TraceLayer::new_for_http())
