@@ -1,7 +1,7 @@
 use crate::configuration::{ApplicationConfig, DatabaseConfig};
 use crate::routes;
 use axum::response::IntoResponse;
-use axum::routing;
+use axum::routing::get;
 use axum::routing::IntoMakeService;
 use hyper::server::conn::AddrIncoming;
 use secrecy::ExposeSecret;
@@ -66,13 +66,12 @@ fn create_server(listener: std::net::TcpListener) -> Result<Server, anyhow::Erro
         axum::routing::get_service(serve_dir).handle_error(error_handler)
     };
 
-    let login_router = axum::Router::new()
-        .route("/", routing::get(routes::login::form))
-        .route("/", routing::post(routes::login::submit));
-
     let web_app = axum::Router::new()
-        .route("/", routing::get(routes::home))
-        .nest("/login", login_router)
+        .route("/", get(routes::home))
+        .route(
+            "/login",
+            get(routes::login::form).post(routes::login::submit),
+        )
         .nest_service("/assets", assets_service)
         .fallback(fallback_handler)
         .layer(tower_http::trace::TraceLayer::new_for_http())
