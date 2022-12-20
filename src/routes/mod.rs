@@ -1,3 +1,4 @@
+use crate::domain::User;
 use askama::Template;
 use axum::http::StatusCode;
 use axum::response::Html;
@@ -24,10 +25,12 @@ impl IntoResponse for Error {
 
 #[derive(askama::Template)]
 #[template(path = "home.html.j2")]
-struct HomeTemplate {}
+struct HomeTemplate {
+    pub user: Option<User>,
+}
 
 pub async fn home() -> Result<Html<String>, Error> {
-    let tpl = HomeTemplate {};
+    let tpl = HomeTemplate { user: None };
 
     let response = Html(tpl.render()?);
 
