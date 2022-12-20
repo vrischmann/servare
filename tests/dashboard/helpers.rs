@@ -33,8 +33,33 @@ impl TestApp {
 
         response.text().await.unwrap()
     }
+
+    pub async fn post_login(&self, body: &LoginBody) -> reqwest::Response {
+        self.post(body).await
+    }
+
+    async fn post<T>(&self, body: &T) -> reqwest::Response
+    where
+        T: serde::Serialize,
+    {
+        self.http_client
+            .post(&format!("{}/login", self.address))
+            .form(body)
+            .send()
+            .await
+            .expect("Failed to execute request.")
+    }
 }
 
+/// Used when submitting a POST /login with the `TestApp` helper.
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub struct LoginBody {
+    pub email: String,
+}
+
+/// Spawns a new [`TestApp`] instance.
+///
+/// The instance is ready to be used for testing.
 pub async fn spawn_app() -> TestApp {
     let config = get_configuration().expect("Failed to get configuration");
 
@@ -43,6 +68,9 @@ pub async fn spawn_app() -> TestApp {
     spawn_app_with_pool(pool).await
 }
 
+/// Spawns a new [`TestApp`] instance with the provided [`PgPool`]
+///
+/// The instance is ready to be used for testing.
 pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
     let mut configuration = get_configuration().expect("Failed to get configuration");
     configuration.application.port = 0;
