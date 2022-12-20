@@ -1,7 +1,7 @@
 use crate::domain::User;
-use crate::routes::Error;
+use crate::routes::{see_other, Error};
 use askama::Template;
-use axum::response::{Html, Redirect};
+use axum::response::{Html, IntoResponse};
 
 #[derive(askama::Template)]
 #[template(path = "login.html.j2")]
@@ -21,6 +21,6 @@ pub async fn form() -> Result<Html<String>, Error> {
     Ok(response)
 }
 
-pub async fn submit() -> Result<Redirect, Error> {
-    Ok(Redirect::temporary("/"))
+pub async fn submit() -> impl IntoResponse {
+    see_other("/")
 }

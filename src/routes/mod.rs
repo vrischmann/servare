@@ -10,17 +10,31 @@ pub mod login;
 #[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
+    Http(#[from] http::Error),
+    #[error(transparent)]
     Askama(#[from] askama::Error),
 }
 
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
         let status_code = match self {
+            Error::Http(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Askama(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         (status_code, status_code.to_string()).into_response()
     }
+}
+
+pub fn see_other<T>(location: T) -> impl IntoResponse
+where
+    T: AsRef<str>,
+{
+    Response::builder()
+        .status(StatusCode::SEE_OTHER)
+        .header("Location", location.as_ref())
+        .body(axum::body::Empty::new())
+        .map_err(Into::<Error>::into)
 }
 
 #[derive(askama::Template)]
