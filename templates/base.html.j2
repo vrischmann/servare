@@ -12,8 +12,13 @@
 <body>
     <div class="container">
         <header class="menu">
+            {% if let Some(user) = user %}
+            <a href="/unread">Unread</a>
+            <a href="/feeds">Feeds</a>
+            {% else %}
             <a href="/login">Login</a>
             <a href="/signup">Signup</a>
+            {% endif %}
         </header>
 
         <div class="content">
