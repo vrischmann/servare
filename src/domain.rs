@@ -6,5 +6,4 @@ pub struct User {
     pub id: UserID,
 }
 
-impl User {
-}
+impl User {}
