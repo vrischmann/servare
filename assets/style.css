@@ -68,15 +68,30 @@ form>label {
 .content {
     margin-top: 3em;
     padding-top: 1em;
-    border-top: 1px black solid;
+    /* border-top: 1px black solid;*/
+}
+
+/* Login */
+
+div.login {
+    display: grid;
+    grid-auto-flow: row;
+    row-gap: 5em;
+    justify-items: center;
 }
 
 form.login {
     display: grid;
-    width: 30%;
+    width: 50%;
     grid-auto-flow: row;
     row-gap: 0.3em;
 }
+
+button.login-submit {
+    margin-top: 1em;
+}
+
+/* Flash messages */
 
 p.flash:before {
     content: "> ";
