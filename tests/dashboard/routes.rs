@@ -16,7 +16,7 @@ async fn home_should_work() {
 async fn login_form_should_work() {
     let app = spawn_app().await;
 
-    let response = app.get_login_html().await;
+    let response = app.get_login().await.text().await.unwrap();
     assert!(
         response.contains("login"),
         "login page doesn't contain the title 'login'"

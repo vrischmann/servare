@@ -39,15 +39,13 @@ impl TestApp {
         response.text().await.unwrap()
     }
 
-    pub async fn get_login_html(&self) -> String {
-        let response = self
+    pub async fn get_login(&self) -> reqwest::Response {
+        self
             .http_client
             .get(&format!("{}/login", self.address))
             .send()
             .await
-            .expect("Failed to execute request.");
-
-        response.text().await.unwrap()
+           .expect("Failed to execute request.")
     }
 
     pub async fn post_login(&self, body: &LoginBody) -> reqwest::Response {
