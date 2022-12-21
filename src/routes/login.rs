@@ -7,13 +7,11 @@ use axum::response::{Html, IntoResponse};
 #[template(path = "login.html.j2")]
 struct LoginTemplate {
     pub user: Option<User>,
-    pub title: String,
 }
 
 pub async fn form() -> Result<Html<String>, Error> {
     let tpl = LoginTemplate {
         user: None,
-        title: "Home page".to_string(),
     };
 
     let response = Html(tpl.render()?);
