@@ -1,6 +1,5 @@
-use crate::helpers::spawn_app;
 use crate::helpers::LoginBody;
-use axum::http::StatusCode;
+use crate::helpers::{assert_is_redirect_to, spawn_app};
 
 #[tokio::test]
 async fn home_should_work() {
@@ -33,7 +32,7 @@ async fn login_post_should_redirect() {
     };
     let login_response = app.post_login(&login_body).await;
 
-    assert_eq!(StatusCode::SEE_OTHER, login_response.status());
+    assert_is_redirect_to(&login_response, "/");
 
     let response = app.get_login_html().await;
     assert!(

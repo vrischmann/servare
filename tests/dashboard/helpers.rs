@@ -116,3 +116,14 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
         test_user: TestUser::default(),
     }
 }
+
+pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
+    assert_eq!(
+        response.status().as_u16(),
+        303,
+        "got {}, expected {}",
+        response.status().as_u16(),
+        303
+    );
+    assert_eq!(response.headers().get("Location").unwrap(), location);
+}
