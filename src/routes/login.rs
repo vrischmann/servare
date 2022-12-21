@@ -10,9 +10,7 @@ struct LoginTemplate {
 }
 
 pub async fn form() -> Result<Html<String>, Error> {
-    let tpl = LoginTemplate {
-        user: None,
-    };
+    let tpl = LoginTemplate { user: None };
 
     let response = Html(tpl.render()?);
 
