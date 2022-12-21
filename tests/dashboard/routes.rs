@@ -24,19 +24,23 @@ async fn login_form_should_work() {
 }
 
 #[tokio::test]
-async fn login_post_should_redirect() {
+async fn successful_login_should_work() {
+    // 1) Setup
+
     let app = spawn_app().await;
+
+    // 2) Submit the login form
 
     let login_body = LoginBody {
         email: app.test_user.email.clone(),
     };
-    let login_response = app.post_login(&login_body).await;
 
+    let login_response = app.post_login(&login_body).await;
     assert_is_redirect_to(&login_response, "/");
 
-    let response = app.get_login_html().await;
-    assert!(
-        response.contains("login"),
-        "login page doesn't contain the title 'login'"
-    );
+    // 3) The login page should now be a redirect to the home
+
+    // TODO(vincent): uncomment and implement this
+    // let response = app.get_login().await;
+    // assert_is_redirect_to(&response, "/");
 }
