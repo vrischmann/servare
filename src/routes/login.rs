@@ -17,6 +17,7 @@ pub async fn form() -> Result<Html<String>, Error> {
     Ok(response)
 }
 
+/// TODO(vincent): implement me
 pub async fn submit() -> impl IntoResponse {
     see_other("/")
 }
