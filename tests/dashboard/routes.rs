@@ -29,7 +29,7 @@ async fn login_post_should_redirect() {
     let app = spawn_app().await;
 
     let login_body = LoginBody {
-        email: "vincent@rischmann.fr".to_string(), // TODO(vincent): replace with the faker crate
+        email: app.test_user.email.clone(),
     };
     let login_response = app.post_login(&login_body).await;
 

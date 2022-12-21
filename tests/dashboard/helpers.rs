@@ -1,14 +1,30 @@
+use fake::faker::internet::en::SafeEmail;
+use fake::Fake;
 use servare::configuration::get_configuration;
 use servare::startup::get_connection_pool;
 use servare::startup::Application;
+
 use sqlx::PgPool;
+
+pub struct TestUser {
+    pub email: String,
+}
+
+impl Default for TestUser {
+    fn default() -> Self {
+        Self {
+            email: SafeEmail().fake(),
+        }
+    }
+}
 
 pub struct TestApp {
     pub address: String,
     pub port: u16,
     pub pool: PgPool,
-
     pub http_client: reqwest::Client,
+
+    pub test_user: TestUser,
 }
 
 impl TestApp {
@@ -97,5 +113,6 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
         port: app_port,
         pool,
         http_client,
+        test_user: TestUser::default(),
     }
 }
