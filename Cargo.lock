@@ -284,6 +284,7 @@ dependencies = [
  "pin-project-lite",
  "rustversion",
  "serde",
+ "serde_urlencoded",
  "sync_wrapper",
  "tokio",
  "tower",
