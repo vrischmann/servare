@@ -40,12 +40,11 @@ impl TestApp {
     }
 
     pub async fn get_login(&self) -> reqwest::Response {
-        self
-            .http_client
+        self.http_client
             .get(&format!("{}/login", self.address))
             .send()
             .await
-           .expect("Failed to execute request.")
+            .expect("Failed to execute request.")
     }
 
     pub async fn post_login(&self, body: &LoginBody) -> reqwest::Response {
