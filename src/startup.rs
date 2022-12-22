@@ -93,16 +93,14 @@ pub async fn get_connection_pool(config: &DatabaseConfig) -> PgPool {
         .expect("Failed to connect to PostgreSQL")
 }
 
-pub fn get_tem_client(configuration: &TEMConfig) -> tem::Client {
-    let sender_email = configuration
-        .sender()
-        .expect("Invalid sender email address");
+pub fn get_tem_client(configuration: &TEMConfig) -> anyhow::Result<tem::Client> {
+    let sender_email = configuration.sender()?;
 
-    tem::Client::new(
+    Ok(tem::Client::new(
         configuration.base_url.clone(),
         configuration.project_id.clone(),
         configuration.auth_key.clone(),
         sender_email,
         configuration.timeout(),
-    )
+    ))
 }
