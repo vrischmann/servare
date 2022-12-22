@@ -58,6 +58,12 @@ pub enum LoginMethod {
     // WebAuthn, TODO(vincent): implement this !
 }
 
+/// Fetches all available [`LoginMethod`] for the given `email`.
+///
+/// If no user with this email exists then the only available method will be
+/// [`LoginMethod::Email`].
+///
+/// If a user exists then its configured login methods will be returned.
 pub async fn fetch_user_login_methods(
     pool: &PgPool,
     email: &UserEmail,
