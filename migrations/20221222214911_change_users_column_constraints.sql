@@ -1,0 +1,3 @@
+ALTER TABLE users ALTER COLUMN created_at SET DEFAULT now();
+ALTER TABLE users ALTER COLUMN confirmed SET DEFAULT false;
+ALTER TABLE users ALTER COLUMN confirmed_at DROP NOT NULL;
