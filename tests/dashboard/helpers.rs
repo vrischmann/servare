@@ -1,8 +1,10 @@
 use fake::faker::internet::en::SafeEmail;
 use fake::Fake;
 use servare::configuration::get_configuration;
-use servare::startup::get_connection_pool;
 use servare::startup::Application;
+use servare::startup::{get_connection_pool, get_tem_client};
+use servare::tem;
+use wiremock::MockServer;
 
 use sqlx::PgPool;
 
@@ -23,6 +25,9 @@ pub struct TestApp {
     pub port: u16,
     pub pool: PgPool,
     pub http_client: reqwest::Client,
+
+    pub email_server: MockServer,
+    pub email_client: tem::Client,
 
     pub test_user: TestUser,
 }
@@ -85,8 +90,17 @@ pub async fn spawn_app() -> TestApp {
 ///
 /// The instance is ready to be used for testing.
 pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
+    let email_server = MockServer::start().await;
+
     let mut configuration = get_configuration().expect("Failed to get configuration");
     configuration.application.port = 0;
+    configuration.tem.base_url = email_server.uri();
+
+    // Build the test user
+    let test_user = TestUser::default();
+
+    // Build the test email client
+    let email_client = get_tem_client(&configuration.tem).expect("Failed to get TEM client");
 
     // Build the application
     let app_pool = pool.clone();
@@ -97,8 +111,7 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
 
     let _ = tokio::spawn(app.run_until_stopped());
 
-    //
-
+    // Build the test HTTP client
     let http_client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .cookie_store(true)
@@ -110,7 +123,9 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
         port: app_port,
         pool,
         http_client,
-        test_user: TestUser::default(),
+        email_server,
+        email_client,
+        test_user,
     }
 }
 
