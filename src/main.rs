@@ -1,9 +1,8 @@
 use servare::configuration::get_configuration;
 use servare::startup::get_connection_pool;
 use servare::startup::Application;
+use servare::telemetry;
 use tracing::info;
-
-mod telemetry;
 
 fn main() -> anyhow::Result<()> {
     let subscriber = telemetry::get_subscriber("servare".into(), "info".into(), std::io::stdout);
