@@ -7,6 +7,7 @@ use hyper::server::conn::AddrIncoming;
 use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use std::sync::Arc;
 use std::time::Duration;
 use tracing::error;
 
@@ -22,9 +23,13 @@ pub enum Error {
 
 type Server = axum::Server<AddrIncoming, IntoMakeService<axum::Router>>;
 
+#[derive(Debug, Clone)]
+pub struct ApplicationState {
+    pub pool: Arc<PgPool>,
+}
+
 pub struct Application {
     pub port: u16,
-    pub pool: sqlx::PgPool,
     server: Server,
 }
 
@@ -34,9 +39,13 @@ impl Application {
             .map_err(Into::<Error>::into)?;
         let port = listener.local_addr().unwrap().port();
 
-        let server: Server = create_server(listener)?;
+        let state = ApplicationState {
+            pool: Arc::new(pool),
+        };
 
-        Ok(Application { port, pool, server })
+        let server: Server = create_server(listener, state)?;
+
+        Ok(Application { port, server })
     }
 
     pub async fn run_until_stopped(self) -> Result<(), Error> {
@@ -59,7 +68,10 @@ async fn error_handler(err: std::io::Error) -> impl IntoResponse {
     )
 }
 
-fn create_server(listener: std::net::TcpListener) -> Result<Server, anyhow::Error> {
+fn create_server(
+    listener: std::net::TcpListener,
+    state: ApplicationState,
+) -> Result<Server, anyhow::Error> {
     // Serves the assets from disk
     let assets_service = {
         let serve_dir = tower_http::services::ServeDir::new("assets");
@@ -75,7 +87,7 @@ fn create_server(listener: std::net::TcpListener) -> Result<Server, anyhow::Erro
         .nest_service("/assets", assets_service)
         .fallback(fallback_handler)
         .layer(tower_http::trace::TraceLayer::new_for_http())
-        .with_state(());
+        .with_state(state);
 
     let web_server_builder = axum::Server::from_tcp(listener)?;
 
