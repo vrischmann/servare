@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use std::fmt;
 use uuid::Uuid;
 use validator::validate_email;
 
@@ -29,6 +30,12 @@ impl UserEmail {
 impl AsRef<str> for UserEmail {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl fmt::Display for UserEmail {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
