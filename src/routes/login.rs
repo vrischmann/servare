@@ -5,7 +5,7 @@ use askama::Template;
 use axum::extract::{Form, State};
 use axum::response::{Html, IntoResponse};
 use sqlx::PgPool;
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(askama::Template)]
 #[template(path = "login.html.j2")]
@@ -37,11 +37,7 @@ pub async fn submit(
 
     match fetch_user_login_methods(pool, &form_data.email).await {
         Ok(methods) => {
-            info!(
-                methods = ?methods,
-                email = %form_data.email,
-                "got the existing state"
-            );
+            let _ = methods;
         }
         Err(err) => {
             error!(err = %err, "unable to check if user exists");
@@ -64,6 +60,7 @@ pub enum LoginMethod {
 /// [`LoginMethod::Email`].
 ///
 /// If a user exists then its configured login methods will be returned.
+#[tracing::instrument(name = "Fetch user login methods", skip(pool))]
 pub async fn fetch_user_login_methods(
     pool: &PgPool,
     email: &UserEmail,
