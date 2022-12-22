@@ -1,3 +1,5 @@
+use crate::domain::UserEmail;
+use crate::tem;
 use secrecy::{ExposeSecret, Secret};
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -17,6 +19,14 @@ pub struct DatabaseConfig {
     pub name: String,
 }
 
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct TEMConfig {
+    pub base_url: String,
+    pub project_id: tem::ProjectId,
+    pub auth_key: Secret<String>,
+    pub sender: UserEmail,
+}
+
 impl DatabaseConfig {
     pub fn connection_string(&self) -> Secret<String> {
         Secret::new(format!(
@@ -34,6 +44,7 @@ impl DatabaseConfig {
 pub struct Config {
     pub application: ApplicationConfig,
     pub database: DatabaseConfig,
+    pub tem: TEMConfig,
 }
 
 pub fn get_configuration() -> Result<Config, config::ConfigError> {

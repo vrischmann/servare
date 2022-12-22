@@ -4,7 +4,7 @@ use serde_json::json;
 use std::time::Duration;
 use tracing::{event, Level};
 
-#[derive(Clone, serde::Serialize)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ProjectId(String);
 
 impl ProjectId {
