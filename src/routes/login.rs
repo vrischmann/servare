@@ -2,8 +2,11 @@ use crate::domain::{User, UserEmail};
 use crate::routes::{see_other, Error};
 use crate::startup::ApplicationState;
 use askama::Template;
+use axum::body::{Empty, Full};
 use axum::extract::{Form, State};
-use axum::response::{Html, IntoResponse};
+use axum::http::header;
+use axum::http::StatusCode;
+use axum::response::{Html, IntoResponse, Response};
 use sqlx::PgPool;
 use tracing::error;
 
@@ -21,6 +24,13 @@ pub async fn form() -> Result<Html<String>, Error> {
     Ok(response)
 }
 
+#[derive(askama::Template)]
+#[template(path = "login_alternative_methods.html.j2")]
+struct LoginAlternativeMethodsTemplate {
+    pub user: Option<User>,
+    pub has_password: bool,
+}
+
 #[derive(serde::Deserialize)]
 pub struct LoginFormData {
     pub email: UserEmail,
@@ -30,21 +40,37 @@ pub struct LoginFormData {
 pub async fn submit(
     State(state): State<ApplicationState>,
     Form(form_data): Form<LoginFormData>,
-) -> impl IntoResponse {
+) -> Result<impl IntoResponse, Error> {
     let pool = &state.pool;
 
     tracing::Span::current().record("email", &tracing::field::display(&form_data.email));
 
     match fetch_user_login_methods(pool, &form_data.email).await {
         Ok(methods) => {
-            let _ = methods;
+            if methods.email && methods.password {
+                let tpl = LoginAlternativeMethodsTemplate {
+                    user: None,
+                    has_password: true,
+                };
+
+                // TODO(vincent): error handling for this template render
+                let tpl_rendered = tpl.render().unwrap();
+
+                let response = Html(tpl_rendered).into_response();
+
+                Ok(response)
+            } else {
+                // TODO(vincent): implement sending the login email
+                let response = see_other("/").into_response();
+
+                Ok(response)
+            }
         }
         Err(err) => {
             error!(err = %err, "unable to check if user exists");
+            Err(err.into())
         }
     }
-
-    see_other("/")
 }
 
 #[derive(Debug, PartialEq)]
