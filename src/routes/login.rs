@@ -124,7 +124,7 @@ mod tests {
             sqlx::query!(
                 r#"
                 INSERT INTO users(id, email, hashed_password)
-                VALUES($1::uuid, $2, $3)
+                VALUES($1, $2, $3)
                 "#,
                 &user_id.0,
                 &email.0,
