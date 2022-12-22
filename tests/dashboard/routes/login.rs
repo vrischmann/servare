@@ -2,17 +2,6 @@ use crate::helpers::LoginBody;
 use crate::helpers::{assert_is_redirect_to, spawn_app};
 
 #[tokio::test]
-async fn home_should_work() {
-    let app = spawn_app().await;
-
-    let response = app.get_home_html().await;
-    assert!(
-        response.contains("Home"),
-        "home page doesn't contain the title 'Home'"
-    );
-}
-
-#[tokio::test]
 async fn login_form_should_work() {
     let app = spawn_app().await;
 
@@ -24,7 +13,7 @@ async fn login_form_should_work() {
 }
 
 #[tokio::test]
-async fn successful_login_should_work() {
+async fn initial_login_should_send_an_email() {
     // 1) Setup
 
     let app = spawn_app().await;
@@ -38,9 +27,5 @@ async fn successful_login_should_work() {
     let login_response = app.post_login(&login_body).await;
     assert_is_redirect_to(&login_response, "/");
 
-    // 3) The login page should now be a redirect to the home
-
-    // TODO(vincent): uncomment and implement this
-    // let response = app.get_login().await;
-    // assert_is_redirect_to(&response, "/");
+    // TODO(vincent): need to add and validate flash messages here
 }
