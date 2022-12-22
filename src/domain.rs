@@ -28,6 +28,4 @@ pub struct User {
 impl User {}
 
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}
