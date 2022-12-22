@@ -13,6 +13,8 @@ pub enum Error {
     Http(#[from] http::Error),
     #[error(transparent)]
     Askama(#[from] askama::Error),
+    #[error(transparent)]
+    Unexpected(#[from] anyhow::Error),
 }
 
 impl IntoResponse for Error {
@@ -20,6 +22,7 @@ impl IntoResponse for Error {
         let status_code = match self {
             Error::Http(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Askama(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            Error::Unexpected(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
         (status_code, status_code.to_string()).into_response()
