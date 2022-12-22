@@ -35,11 +35,10 @@ pub async fn submit(
 
     tracing::Span::current().record("email", &tracing::field::display(&form_data.email));
 
-    // 1) check if the user exists; if it doesn't send the login email
-    match user_exists(pool, &form_data.email).await {
-        Ok(exists) => {
+    match fetch_user_login_methods(pool, &form_data.email).await {
+        Ok(methods) => {
             info!(
-                exists = exists,
+                methods = ?methods,
                 email = %form_data.email,
                 "got the existing state"
             );
@@ -52,10 +51,90 @@ pub async fn submit(
     see_other("/")
 }
 
-async fn user_exists(pool: &PgPool, email: &UserEmail) -> Result<bool, sqlx::Error> {
-    let record = sqlx::query!(r#"SELECT id FROM users WHERE email = $1"#, email.as_ref())
-        .fetch_optional(pool)
-        .await?;
+#[derive(Debug, PartialEq)]
+pub enum LoginMethod {
+    Email,
+    Password,
+    // WebAuthn, TODO(vincent): implement this !
+}
 
-    Ok(record.is_some())
+pub async fn fetch_user_login_methods(
+    pool: &PgPool,
+    email: &UserEmail,
+) -> anyhow::Result<Vec<LoginMethod>> {
+    let record = sqlx::query!(
+        r#"SELECT id, hashed_password FROM users WHERE email = $1"#,
+        email.as_ref()
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    // The "email" login method is always available.
+    let mut login_methods = vec![LoginMethod::Email];
+
+    if let Some(record) = record {
+        if record.hashed_password.is_some() {
+            login_methods.push(LoginMethod::Password);
+        }
+    }
+
+    Ok(login_methods)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::configuration::get_configuration;
+    use crate::domain::UserId;
+    use crate::startup::get_connection_pool;
+    use fake::faker::internet::en::SafeEmail;
+    use fake::Fake;
+
+    async fn get_pool() -> sqlx::PgPool {
+        let config = get_configuration().unwrap();
+        get_connection_pool(&config.database).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn login_methods_on_nonexisting_user() {
+        let pool = get_pool().await;
+
+        let email = UserEmail::parse(SafeEmail().fake()).unwrap();
+
+        let login_methods = fetch_user_login_methods(&pool, &email).await.unwrap();
+        // Expect to only get the "email" login method here
+        assert_eq!(1, login_methods.len());
+    }
+
+    #[tokio::test]
+    async fn login_methods_on_existing_user() {
+        let pool = get_pool().await;
+
+        let user_id = UserId::default();
+        let email = UserEmail::parse(SafeEmail().fake()).unwrap();
+
+        // This is a quick hack to set the login methods for this user
+        {
+            sqlx::query!(
+                r#"
+                INSERT INTO users(id, email, hashed_password)
+                VALUES($1::uuid, $2, $3)
+                "#,
+                &user_id.0,
+                &email.0,
+                "foobar",
+            )
+            .execute(&pool)
+            .await
+            .unwrap();
+        }
+
+        let login_methods = fetch_user_login_methods(&pool, &email).await.unwrap();
+        // Expect to get the login methods set on the user, here we set these up:
+        // * password
+        assert_eq!(
+            vec![LoginMethod::Email, LoginMethod::Password],
+            login_methods
+        );
+    }
 }
