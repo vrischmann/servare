@@ -1,9 +1,10 @@
 use crate::domain::{User, UserEmail};
 use crate::routes::{see_other, Error};
 use askama::Template;
-use axum::extract::Form;
+use axum::extract::{Extension, Form};
 use axum::response::{Html, IntoResponse};
 use sqlx::PgPool;
+use tracing::{error, info};
 
 #[derive(askama::Template)]
 #[template(path = "login.html.j2")]
@@ -24,8 +25,23 @@ pub struct LoginFormData {
     pub email: UserEmail,
 }
 
-pub async fn submit(Form(login_form_data): Form<LoginFormData>) -> impl IntoResponse {
+pub async fn submit(
+    Extension(pool): Extension<PgPool>,
+    Form(login_form_data): Form<LoginFormData>,
+) -> impl IntoResponse {
     // 1) check if the user exists; if it doesn't send the login email
+    match user_exists(pool, &login_form_data.email).await {
+        Ok(exists) => {
+            info!(
+                exists = exists,
+                email = %login_form_data.email,
+                "got the existing state"
+            );
+        }
+        Err(err) => {
+            error!(err = %err, "unable to check if user exists");
+        }
+    }
 
     see_other("/")
 }
