@@ -1,12 +1,29 @@
 use fake::faker::internet::en::SafeEmail;
 use fake::Fake;
+use once_cell::sync::Lazy;
 use servare::configuration::get_configuration;
 use servare::startup::Application;
 use servare::startup::{get_connection_pool, get_tem_client};
-use servare::tem;
+use servare::{telemetry, tem};
+use sqlx::PgPool;
 use wiremock::MockServer;
 
-use sqlx::PgPool;
+static TRACING: Lazy<()> = Lazy::new(|| {
+    let default_filter_level = "info".into();
+    let subscriber_name = "test".into();
+
+    std::env::set_var("RUST_LOG", "sqlx=error,info");
+
+    if std::env::var("TEST_LOG").is_ok() {
+        let subscriber =
+            telemetry::get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
+        telemetry::init_global_default(subscriber);
+    } else {
+        let subscriber =
+            telemetry::get_subscriber(subscriber_name, default_filter_level, std::io::sink);
+        telemetry::init_global_default(subscriber);
+    }
+});
 
 pub struct TestUser {
     pub email: String,
@@ -90,8 +107,16 @@ pub async fn spawn_app() -> TestApp {
 ///
 /// The instance is ready to be used for testing.
 pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
+    // Enable tracing
+    Lazy::force(&TRACING);
+
+    // We mock the minimal needed from the TEM API using wiremock
     let email_server = MockServer::start().await;
 
+    // Get the configuration from the local file and modify it to be suitable for testing.
+    // This means:
+    // * set the port to 0 so that the OS is responsible for choosing a free port
+    // * set the TEM base url to the URL of the mock email server
     let mut configuration = get_configuration().expect("Failed to get configuration");
     configuration.application.port = 0;
     configuration.tem.base_url = email_server.uri();
@@ -102,9 +127,8 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
     // Build the test email client
     let email_client = get_tem_client(&configuration.tem).expect("Failed to get TEM client");
 
-    // Build the application
+    // Build and start the application
     let app_pool = pool.clone();
-
     let app = Application::build(&configuration.application, app_pool)
         .expect("Failed to build application");
     let app_port = app.port;
