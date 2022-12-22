@@ -4,6 +4,12 @@ use uuid::Uuid;
 #[sqlx(transparent)]
 pub struct UserId(pub Uuid);
 
+impl Default for UserId {
+    fn default() -> Self {
+        Self(Uuid::new_v4())
+    }
+}
+
 #[derive(sqlx::Type, serde::Deserialize, serde::Serialize)]
 #[sqlx(transparent)]
 pub struct UserEmail(pub String);
@@ -20,3 +26,8 @@ pub struct User {
 }
 
 impl User {}
+
+#[cfg(test)]
+mod tests {
+
+}
