@@ -1,8 +1,9 @@
-use crate::domain::User;
+use crate::domain::{User, UserEmail};
 use crate::routes::{see_other, Error};
 use askama::Template;
 use axum::extract::Form;
 use axum::response::{Html, IntoResponse};
+use sqlx::PgPool;
 
 #[derive(askama::Template)]
 #[template(path = "login.html.j2")]
@@ -20,18 +21,19 @@ pub async fn form() -> Result<Html<String>, Error> {
 
 #[derive(serde::Deserialize)]
 pub struct LoginFormData {
-    pub email: String,
+    pub email: UserEmail,
 }
 
 pub async fn submit(Form(login_form_data): Form<LoginFormData>) -> impl IntoResponse {
-    // TODO(vincent): implement this !
-    //
-    // 1) lookup the account with the email
-    //
-    // 2) if the account exists, determine if it has alternative login methods (password, webauthn)
-    // 3) if it has any, redirect to a page with buttons to choose the login method (email,
-    //    password or webauthn)
-    // 4) if not, send a login email
+    // 1) check if the user exists; if it doesn't send the login email
 
     see_other("/")
+}
+
+async fn user_exists(pool: PgPool, email: &UserEmail) -> Result<bool, sqlx::Error> {
+    let record = sqlx::query!(r#"SELECT id FROM users WHERE email = $1"#, email.as_ref())
+        .fetch_optional(&pool)
+        .await?;
+
+    Ok(record.is_some())
 }
