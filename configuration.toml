@@ -10,3 +10,10 @@ password = "vincent"
 port = 5432
 host = "127.0.0.1"
 name = "servare_tests"
+
+[tem]
+base_url = "https://api.scaleway.com/transactional-email/v1alpha1/regions/fr-par"
+project_id = "myprojectid"
+auth_key = "myauthkey"
+sender_email = "vincent@rischmann.fr"
+timeout_milliseconds = 10000
