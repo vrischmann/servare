@@ -48,10 +48,9 @@ pub async fn submit(
 }
 
 #[derive(Debug, PartialEq)]
-pub enum LoginMethod {
-    Email,
-    Password,
-    // WebAuthn, TODO(vincent): implement this !
+pub struct LoginMethods {
+    email: bool,
+    password: bool,
 }
 
 /// Fetches all available [`LoginMethod`] for the given `email`.
@@ -64,7 +63,7 @@ pub enum LoginMethod {
 pub async fn fetch_user_login_methods(
     pool: &PgPool,
     email: &UserEmail,
-) -> anyhow::Result<Vec<LoginMethod>> {
+) -> anyhow::Result<LoginMethods> {
     let record = sqlx::query!(
         r#"SELECT id, hashed_password FROM users WHERE email = $1"#,
         email.as_ref()
@@ -73,12 +72,13 @@ pub async fn fetch_user_login_methods(
     .await?;
 
     // The "email" login method is always available.
-    let mut login_methods = vec![LoginMethod::Email];
+    let mut login_methods = LoginMethods {
+        email: true,
+        password: false,
+    };
 
     if let Some(record) = record {
-        if record.hashed_password.is_some() {
-            login_methods.push(LoginMethod::Password);
-        }
+        login_methods.password = record.hashed_password.is_some();
     }
 
     Ok(login_methods)
@@ -105,8 +105,7 @@ mod tests {
         let email = UserEmail::parse(SafeEmail().fake()).unwrap();
 
         let login_methods = fetch_user_login_methods(&pool, &email).await.unwrap();
-        // Expect to only get the "email" login method here
-        assert_eq!(1, login_methods.len());
+        assert!(login_methods.email, "expected 'email' login method");
     }
 
     #[tokio::test]
@@ -133,11 +132,7 @@ mod tests {
         }
 
         let login_methods = fetch_user_login_methods(&pool, &email).await.unwrap();
-        // Expect to get the login methods set on the user, here we set these up:
-        // * password
-        assert_eq!(
-            vec![LoginMethod::Email, LoginMethod::Password],
-            login_methods
-        );
+        assert!(login_methods.email, "expected 'email' login method");
+        assert!(login_methods.password, "expected 'password' login method");
     }
 }
