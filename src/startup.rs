@@ -1,5 +1,5 @@
-use crate::configuration::{ApplicationConfig, DatabaseConfig};
-use crate::routes;
+use crate::configuration::{ApplicationConfig, DatabaseConfig, TEMConfig};
+use crate::{routes, tem};
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::routing::IntoMakeService;
@@ -91,4 +91,18 @@ pub async fn get_connection_pool(config: &DatabaseConfig) -> PgPool {
         .connect(config.connection_string().expose_secret())
         .await
         .expect("Failed to connect to PostgreSQL")
+}
+
+pub fn get_tem_client(configuration: &TEMConfig) -> tem::Client {
+    let sender_email = configuration
+        .sender()
+        .expect("Invalid sender email address");
+
+    tem::Client::new(
+        configuration.base_url.clone(),
+        configuration.project_id.clone(),
+        configuration.auth_key.clone(),
+        sender_email,
+        configuration.timeout(),
+    )
 }
