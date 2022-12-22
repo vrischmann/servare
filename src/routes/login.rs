@@ -1,7 +1,8 @@
 use crate::domain::{User, UserEmail};
 use crate::routes::{see_other, Error};
+use crate::startup::ApplicationState;
 use askama::Template;
-use axum::extract::{Extension, Form};
+use axum::extract::{Form, State};
 use axum::response::{Html, IntoResponse};
 use sqlx::PgPool;
 use tracing::{error, info};
@@ -26,9 +27,11 @@ pub struct LoginFormData {
 }
 
 pub async fn submit(
-    Extension(pool): Extension<PgPool>,
+    State(state): State<ApplicationState>,
     Form(login_form_data): Form<LoginFormData>,
 ) -> impl IntoResponse {
+    let pool = &state.pool;
+
     // 1) check if the user exists; if it doesn't send the login email
     match user_exists(pool, &login_form_data.email).await {
         Ok(exists) => {
@@ -46,9 +49,9 @@ pub async fn submit(
     see_other("/")
 }
 
-async fn user_exists(pool: PgPool, email: &UserEmail) -> Result<bool, sqlx::Error> {
+async fn user_exists(pool: &PgPool, email: &UserEmail) -> Result<bool, sqlx::Error> {
     let record = sqlx::query!(r#"SELECT id FROM users WHERE email = $1"#, email.as_ref())
-        .fetch_optional(&pool)
+        .fetch_optional(pool)
         .await?;
 
     Ok(record.is_some())
