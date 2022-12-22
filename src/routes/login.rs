@@ -26,18 +26,21 @@ pub struct LoginFormData {
     pub email: UserEmail,
 }
 
+#[tracing::instrument(name = "Login submit", skip(state, form_data), fields())]
 pub async fn submit(
     State(state): State<ApplicationState>,
-    Form(login_form_data): Form<LoginFormData>,
+    Form(form_data): Form<LoginFormData>,
 ) -> impl IntoResponse {
     let pool = &state.pool;
 
+    tracing::Span::current().record("email", &tracing::field::display(&form_data.email));
+
     // 1) check if the user exists; if it doesn't send the login email
-    match user_exists(pool, &login_form_data.email).await {
+    match user_exists(pool, &form_data.email).await {
         Ok(exists) => {
             info!(
                 exists = exists,
-                email = %login_form_data.email,
+                email = %form_data.email,
                 "got the existing state"
             );
         }
