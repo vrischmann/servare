@@ -20,7 +20,7 @@ fn main() -> anyhow::Result<()> {
         .unwrap();
     let _runtime_guard = runtime.enter();
 
-    let pool = runtime.block_on(get_connection_pool(&config.database));
+    let pool = runtime.block_on(get_connection_pool(&config.database))?;
     let app = Application::build(&config.application, pool)?;
 
     let future = app.run_until_stopped();
