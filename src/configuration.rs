@@ -1,6 +1,7 @@
 use crate::domain::UserEmail;
 use crate::tem;
 use secrecy::{ExposeSecret, Secret};
+use std::time::Duration;
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct ApplicationConfig {
@@ -19,14 +20,6 @@ pub struct DatabaseConfig {
     pub name: String,
 }
 
-#[derive(Clone, Debug, serde::Deserialize)]
-pub struct TEMConfig {
-    pub base_url: String,
-    pub project_id: tem::ProjectId,
-    pub auth_key: Secret<String>,
-    pub sender: UserEmail,
-}
-
 impl DatabaseConfig {
     pub fn connection_string(&self) -> Secret<String> {
         Secret::new(format!(
@@ -37,6 +30,25 @@ impl DatabaseConfig {
             self.port,
             self.name
         ))
+    }
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct TEMConfig {
+    pub base_url: String,
+    pub project_id: tem::ProjectId,
+    pub auth_key: Secret<String>,
+    pub sender_email: String,
+    pub timeout_milliseconds: u64,
+}
+
+impl TEMConfig {
+    pub fn sender(&self) -> anyhow::Result<UserEmail> {
+        UserEmail::parse(self.sender_email.clone())
+    }
+
+    pub fn timeout(&self) -> Duration {
+        Duration::from_millis(self.timeout_milliseconds)
     }
 }
 
