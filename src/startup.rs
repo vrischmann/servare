@@ -96,13 +96,12 @@ fn create_server(
     Ok(web_server)
 }
 
-pub async fn get_connection_pool(config: &DatabaseConfig) -> PgPool {
+pub async fn get_connection_pool(config: &DatabaseConfig) -> Result<PgPool, sqlx::Error> {
     PgPoolOptions::new()
         .max_connections(1024)
         .acquire_timeout(Duration::from_secs(1))
         .connect(config.connection_string().expose_secret())
         .await
-        .expect("Failed to connect to PostgreSQL")
 }
 
 pub fn get_tem_client(configuration: &TEMConfig) -> anyhow::Result<tem::Client> {

@@ -98,7 +98,7 @@ pub struct LoginBody {
 pub async fn spawn_app() -> TestApp {
     let config = get_configuration().expect("Failed to get configuration");
 
-    let pool = get_connection_pool(&config.database).await;
+    let pool = get_connection_pool(&config.database).await.unwrap();
 
     spawn_app_with_pool(pool).await
 }
