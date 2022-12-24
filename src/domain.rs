@@ -3,13 +3,21 @@ use std::fmt;
 use uuid::Uuid;
 use validator::validate_email;
 
-#[derive(Clone, Debug, sqlx::Type, serde::Deserialize, serde::Serialize)]
+#[derive(
+    Clone, Debug, Eq, PartialEq, Ord, PartialOrd, sqlx::Type, serde::Deserialize, serde::Serialize,
+)]
 #[sqlx(transparent)]
 pub struct UserId(pub Uuid);
 
 impl Default for UserId {
     fn default() -> Self {
         Self(Uuid::new_v4())
+    }
+}
+
+impl fmt::Display for UserId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
