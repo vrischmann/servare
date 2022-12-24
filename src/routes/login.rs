@@ -24,6 +24,7 @@ pub async fn form() -> Result<Html<String>, Error> {
 #[derive(serde::Deserialize)]
 pub struct LoginFormData {
     pub email: UserEmail,
+    pub password: String,
 }
 
 #[tracing::instrument(name = "Login submit", skip(state, form_data), fields())]
