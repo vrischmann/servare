@@ -22,6 +22,7 @@ async fn initial_login_should_send_an_email() {
 
     let login_body = LoginBody {
         email: app.test_user.email.clone(),
+        password: app.test_user.password.clone(),
     };
 
     let login_response = app.post_login(&login_body).await;

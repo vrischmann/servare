@@ -1,4 +1,4 @@
-use fake::faker::internet::en::SafeEmail;
+use fake::faker::internet::en::{Password as FakerPassword, SafeEmail as FakerSafeEmail};
 use fake::Fake;
 use once_cell::sync::Lazy;
 use servare::configuration::get_configuration;
@@ -27,12 +27,14 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 
 pub struct TestUser {
     pub email: String,
+    pub password: String,
 }
 
 impl Default for TestUser {
     fn default() -> Self {
         Self {
-            email: SafeEmail().fake(),
+            email: FakerSafeEmail().fake(),
+            password: FakerPassword(10..20).fake(),
         }
     }
 }
@@ -90,6 +92,7 @@ impl TestApp {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct LoginBody {
     pub email: String,
+    pub password: String,
 }
 
 /// Spawns a new [`TestApp`] instance.
