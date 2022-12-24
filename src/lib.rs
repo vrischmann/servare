@@ -1,4 +1,5 @@
 pub mod configuration;
+pub mod authentication;
 mod domain;
 mod routes;
 pub mod startup;
