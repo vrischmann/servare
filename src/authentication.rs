@@ -1,11 +1,13 @@
-use crate::domain::{User, UserId};
+use crate::domain::{UserEmail, UserId};
+use crate::telemetry::spawn_blocking_with_tracing;
+use anyhow::anyhow;
 use anyhow::Context;
 use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use rand;
 use secrecy::{ExposeSecret, Secret};
-use std::fmt;
 
+/// This error is returned when there is a problem authenticating.
 #[derive(Debug, thiserror::Error)]
 pub enum AuthError {
     #[error("Invalid credentials")]
@@ -14,9 +16,80 @@ pub enum AuthError {
     Unexpected(#[from] anyhow::Error),
 }
 
-#[tracing::instrument(name = "Authenticate")]
-pub async fn authenticate() -> Result<User, AuthError> {
-    todo!()
+/// Represents the credentials used for authentication.
+pub struct Credentials {
+    pub email: UserEmail,
+    pub password: Secret<String>,
+}
+
+#[tracing::instrument(name = "Authenticate", skip(pool, credentials))]
+pub async fn authenticate(
+    pool: &sqlx::PgPool,
+    credentials: Credentials,
+) -> Result<UserId, AuthError> {
+    let mut user_id = None;
+    let mut expected_password_hash = Secret::new(
+        "$argon2id$v=19$m=15000,t=2,p=1$\
+gZiV/M1gPc22ElAH/Jh1Hw$\
+CWOrkoo7oJBQ/iyh7uJ0LO2aLEfrHwTWllSAxT0zRno"
+            .into(),
+    );
+
+    let stored_credentials = get_stored_credentials(pool, &credentials.email)
+        .await
+        .map_err(AuthError::Unexpected)?;
+
+    if let Some(stored_credentials) = stored_credentials {
+        user_id = Some(stored_credentials.0);
+        expected_password_hash = stored_credentials.1;
+    }
+
+    //
+
+    let verify_result = spawn_blocking_with_tracing(move || {
+        verify_password_hash(expected_password_hash, credentials.password)
+    })
+    .await
+    .context("Failed to spawn blocking task")
+    .map_err(AuthError::Unexpected)?;
+
+    verify_result?;
+
+    //
+
+    user_id
+        .ok_or_else(|| anyhow!("Unknown username"))
+        .map_err(AuthError::InvalidCredentials)
+}
+
+#[tracing::instrument(name = "Change password", skip(pool, password))]
+pub async fn change_password(
+    pool: &sqlx::PgPool,
+    user_id: UserId,
+    password: Secret<String>,
+) -> Result<(), anyhow::Error> {
+    // Compute the new hash
+    let password_hash_result = spawn_blocking_with_tracing(move || compute_password_hash(password))
+        .await
+        .context("Failed to spawn blocking task")
+        .map_err(Into::<anyhow::Error>::into)?;
+    let password_hash = password_hash_result?;
+
+    // Store it
+    sqlx::query!(
+        r#"
+        UPDATE users
+        SET password_hash = $1
+        WHERE id = $2
+        "#,
+        password_hash.expose_secret(),
+        &user_id.0,
+    )
+    .execute(pool)
+    .await
+    .context("Failed to update the users password")?;
+
+    Ok(())
 }
 
 pub fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>, anyhow::Error> {
@@ -54,14 +127,15 @@ fn verify_password_hash(
         .map_err(AuthError::InvalidCredentials)
 }
 
+/// Get the stored credentials for a user email.
+///
+/// Returns a tuple of (user id, password hash) if the user exists.
+/// Returns None otherwise.
 #[tracing::instrument(name = "Get stored credentials", skip(pool))]
-async fn get_stored_credentials<T>(
+async fn get_stored_credentials(
     pool: &sqlx::PgPool,
-    email: T,
-) -> Result<Option<(UserId, Secret<String>)>, anyhow::Error>
-where
-    T: fmt::Debug + AsRef<str>,
-{
+    email: &UserEmail,
+) -> Result<Option<(UserId, Secret<String>)>, anyhow::Error> {
     let row = sqlx::query!(
         r#"
         SELECT id, password_hash
