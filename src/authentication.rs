@@ -91,6 +91,7 @@ where
 mod tests {
     use super::*;
     use crate::configuration::get_configuration;
+    use crate::domain::UserEmail;
     use crate::startup::get_connection_pool;
     use fake::faker::internet::en::SafeEmail as FakerSafeEmail;
     use fake::Fake;
