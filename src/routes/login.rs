@@ -71,6 +71,8 @@ pub struct LoginMethods {
 /// [`LoginMethod::Email`].
 ///
 /// If a user exists then its configured login methods will be returned.
+///
+/// TODO(vincent): remove me
 #[tracing::instrument(name = "Fetch user login methods", skip(pool))]
 pub async fn fetch_user_login_methods(
     pool: &PgPool,
