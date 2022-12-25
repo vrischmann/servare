@@ -181,7 +181,7 @@ mod tests {
 
         let email = UserEmail::parse(FakerSafeEmail().fake()).unwrap();
 
-        let credentials = get_stored_credentials(&pool, email.as_ref()).await.unwrap();
+        let credentials = get_stored_credentials(&pool, &email).await.unwrap();
         assert!(credentials.is_none());
     }
 
@@ -208,7 +208,7 @@ mod tests {
             .unwrap();
         }
 
-        let credentials = get_stored_credentials(&pool, email.as_ref()).await.unwrap();
+        let credentials = get_stored_credentials(&pool, &email).await.unwrap();
         assert!(credentials.is_some());
 
         let credentials = credentials.unwrap();
