@@ -4,7 +4,7 @@ use servare::startup::Application;
 use servare::telemetry;
 use tracing::{error, info};
 
-fn main() -> anyhow::Result<()> {
+fn main() {
     let subscriber = telemetry::get_subscriber("servare".into(), "info".into(), std::io::stdout);
     telemetry::init_global_default(subscriber);
 
@@ -12,7 +12,7 @@ fn main() -> anyhow::Result<()> {
         Ok(config) => config,
         Err(err) => {
             error!(err = %err, "unable to get the configuration");
-            return Err(err.into());
+            std::process::exit(1)
         }
     };
 
@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
         Ok(pool) => pool,
         Err(err) => {
             error!(err = %err, "unable to get a connection pool");
-            return Err(err.into());
+            std::process::exit(1)
         }
     };
 
@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
         Ok(app) => app,
         Err(err) => {
             error!(err = %err, "failed to build application");
-            return Err(err.into());
+            std::process::exit(1)
         }
     };
 
@@ -62,6 +62,4 @@ fn main() -> anyhow::Result<()> {
             error!(err = %err, "application failed");
         }
     }
-
-    Ok(())
 }
