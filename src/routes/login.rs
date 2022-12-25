@@ -1,9 +1,13 @@
+use crate::authentication::{authenticate, AuthError, Credentials};
 use crate::domain::{User, UserEmail};
 use crate::routes::{see_other, Error};
 use crate::startup::ApplicationState;
 use askama::Template;
 use axum::extract::{Form, State};
-use axum::response::{Html, IntoResponse};
+use axum::http::header;
+use axum::http::StatusCode;
+use axum::response::{Html, IntoResponse, Response};
+use secrecy::Secret;
 
 #[derive(askama::Template)]
 #[template(path = "login.html.j2")]
@@ -20,6 +24,33 @@ pub async fn form() -> Result<Html<String>, Error> {
     Ok(response)
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum LoginError {
+    #[error("Authentication failed")]
+    Auth(#[source] anyhow::Error),
+    #[error("Something went wrong")]
+    Unexpected(#[source] anyhow::Error),
+}
+
+impl IntoResponse for LoginError {
+    fn into_response(self) -> Response {
+        let status_code = match self {
+            LoginError::Auth(_) => StatusCode::SEE_OTHER,
+            LoginError::Unexpected(_) => StatusCode::SEE_OTHER,
+        };
+
+        // TODO(vincent): how de we log here ??
+
+        let response = (
+            status_code,
+            [(header::LOCATION, "/login")],
+            status_code.to_string(),
+        );
+
+        response.into_response()
+    }
+}
+
 #[derive(serde::Deserialize)]
 pub struct LoginFormData {
     pub email: UserEmail,
@@ -30,30 +61,32 @@ pub struct LoginFormData {
 pub async fn submit(
     State(state): State<ApplicationState>,
     Form(form_data): Form<LoginFormData>,
-) -> Result<impl IntoResponse, Error> {
-    let _pool = &state.pool;
+) -> Result<impl IntoResponse, LoginError> {
+    let pool = &state.pool;
 
     tracing::Span::current().record("email", &tracing::field::display(&form_data.email));
 
-    Ok(see_other("/"))
+    let credentials = Credentials {
+        email: form_data.email,
+        password: Secret::from(form_data.password),
+    };
 
-    // match fetch_user_login_methods(pool, &form_data.email).await {
-    //     Ok(methods) => {
-    //         if methods.email && methods.password {
-    //             // TODO(vincent): need to keep the email in a session
-    //             let response = see_other("/login/alternative").into_response();
+    match authenticate(pool, credentials).await {
+        Ok(user_id) => {
+            tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
-    //             Ok(response)
-    //         } else {
-    //             // TODO(vincent): implement sending the login email
-    //             let response = see_other("/").into_response();
+            // TODO(vincent): handle session
 
-    //             Ok(response)
-    //         }
-    //     }
-    //     Err(err) => {
-    //         error!(err = %err, "unable to check if user exists");
-    //         Err(err.into())
-    //     }
-    // }
+            Ok(see_other("/"))
+        }
+
+        Err(err) => {
+            let err = match err {
+                AuthError::InvalidCredentials(_) => LoginError::Auth(err.into()),
+                AuthError::Unexpected(_) => LoginError::Unexpected(err.into()),
+            };
+
+            Err(err)
+        }
+    }
 }

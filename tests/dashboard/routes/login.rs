@@ -13,12 +13,8 @@ async fn login_form_should_work() {
 }
 
 #[tokio::test]
-async fn initial_login_should_send_an_email() {
-    // 1) Setup
-
+async fn login_should_work() {
     let app = spawn_app().await;
-
-    // 2) Submit the login form
 
     let login_body = LoginBody {
         email: app.test_user.email.clone(),
