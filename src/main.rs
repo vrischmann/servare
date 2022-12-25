@@ -2,13 +2,19 @@ use servare::configuration::get_configuration;
 use servare::startup::get_connection_pool;
 use servare::startup::Application;
 use servare::telemetry;
-use tracing::info;
+use tracing::{error, info};
 
-fn main() -> anyhow::Result<()> {
+fn main() {
     let subscriber = telemetry::get_subscriber("servare".into(), "info".into(), std::io::stdout);
     telemetry::init_global_default(subscriber);
 
-    let config = get_configuration()?;
+    let config = match get_configuration() {
+        Ok(config) => config,
+        Err(err) => {
+            error!(err = %err, "unable to get the configuration");
+            std::process::exit(1)
+        }
+    };
 
     // Build the Tokio runtime
     let runtime = tokio::runtime::Builder::new_current_thread()
@@ -20,9 +26,25 @@ fn main() -> anyhow::Result<()> {
         .unwrap();
     let _runtime_guard = runtime.enter();
 
-    let pool = runtime.block_on(get_connection_pool(&config.database))?;
-    let app = Application::build(&config.application, pool)?;
+    // Connect to PostgreSQL and get a connection pool
+    let pool = match runtime.block_on(get_connection_pool(&config.database)) {
+        Ok(pool) => pool,
+        Err(err) => {
+            error!(err = %err, "unable to get a connection pool");
+            std::process::exit(1)
+        }
+    };
 
+    // Build the web application
+    let app = match Application::build(&config.application, pool) {
+        Ok(app) => app,
+        Err(err) => {
+            error!(err = %err, "failed to build application");
+            std::process::exit(1)
+        }
+    };
+
+    // Finally start the application asynchronously
     let future = app.run_until_stopped();
 
     info!(
@@ -34,7 +56,10 @@ fn main() -> anyhow::Result<()> {
     );
 
     // Run the app future until done
-    runtime.block_on(future)?;
-
-    Ok(())
+    match runtime.block_on(future) {
+        Ok(()) => {}
+        Err(err) => {
+            error!(err = %err, "application failed");
+        }
+    }
 }

@@ -9,6 +9,7 @@ pub struct ApplicationConfig {
     pub host: String,
     pub port: usize,
     pub base_url: String,
+    pub cookie_key: Secret<String>,
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
