@@ -28,6 +28,7 @@ sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-r
 tokio = { version = "1.2", features = ["signal", "macros"] }
 axum = { version = "0.6", default-features = false, features = ["tokio", "http1", "form"] }
 axum-extra = { version = "0.4", default-features = false, features = ["cookie", "cookie-private"] }
+tower = "0.4"
 tower-http = { version = "0.3", features = ["trace", "fs"] }
 http = "0.2"
 hyper = "0.14"
