@@ -11,6 +11,7 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
 use std::sync::Arc;
 use std::time::Duration;
+use tower::ServiceBuilder;
 use tracing::error;
 
 #[derive(Debug, thiserror::Error)]
@@ -116,7 +117,11 @@ fn create_server(
         )
         .nest_service("/assets", assets_service)
         .fallback(fallback_handler)
-        .layer(tower_http::trace::TraceLayer::new_for_http())
+        .layer(
+            ServiceBuilder::new()
+                .layer(tower_http::trace::TraceLayer::new_for_http())
+                .layer(session_layer),
+        )
         .with_state(state);
 
     let web_server_builder = axum::Server::from_tcp(listener)?;
