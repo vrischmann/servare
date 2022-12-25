@@ -1,11 +1,16 @@
+use anyhow::Context;
+use argon2::password_hash::{PasswordHasher, SaltString};
+use argon2::Argon2;
 use fake::faker::internet::en::{Password as FakerPassword, SafeEmail as FakerSafeEmail};
 use fake::Fake;
 use once_cell::sync::Lazy;
 use servare::configuration::get_configuration;
+use servare::domain::UserId;
 use servare::startup::Application;
 use servare::startup::{get_connection_pool, get_tem_client};
 use servare::{telemetry, tem};
 use sqlx::PgPool;
+use uuid::Uuid;
 use wiremock::MockServer;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
@@ -26,6 +31,7 @@ static TRACING: Lazy<()> = Lazy::new(|| {
 });
 
 pub struct TestUser {
+    pub id: UserId,
     pub email: String,
     pub password: String,
 }
@@ -33,9 +39,42 @@ pub struct TestUser {
 impl Default for TestUser {
     fn default() -> Self {
         Self {
+            id: UserId(Uuid::new_v4()),
             email: FakerSafeEmail().fake(),
             password: FakerPassword(10..20).fake(),
         }
+    }
+}
+
+impl TestUser {
+    async fn store(&self, pool: &PgPool) -> anyhow::Result<()> {
+        let salt = SaltString::generate(&mut rand::thread_rng());
+
+        let hasher = Argon2::new(
+            argon2::Algorithm::Argon2id,
+            argon2::Version::V0x13,
+            argon2::Params::new(15000, 2, 1, None).unwrap(),
+        );
+
+        let password_hash = hasher
+            .hash_password(self.password.as_bytes(), &salt)
+            .context("unable to compute password hash")?
+            .to_string();
+
+        sqlx::query!(
+            r#"
+            INSERT INTO users(id, email, password_hash)
+            VALUES ($1, $2, $3)
+            "#,
+            &self.id.0,
+            self.email,
+            password_hash,
+        )
+        .execute(pool)
+        .await
+        .context("unable to insert test user")?;
+
+        Ok(())
     }
 }
 
@@ -124,9 +163,6 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
     configuration.application.port = 0;
     configuration.tem.base_url = email_server.uri();
 
-    // Build the test user
-    let test_user = TestUser::default();
-
     // Build the test email client
     let email_client = get_tem_client(&configuration.tem).expect("Failed to get TEM client");
 
@@ -145,15 +181,24 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
         .build()
         .expect("Failed to build HTTP client");
 
-    TestApp {
+    let test_app = TestApp {
         address: format!("http://127.0.0.1:{}", app_port),
         port: app_port,
         pool,
         http_client,
         email_server,
         email_client,
-        test_user,
-    }
+        test_user: TestUser::default(),
+    };
+
+    // Store the test user
+    test_app
+        .test_user
+        .store(&test_app.pool)
+        .await
+        .expect("Failed to store the test user");
+
+    test_app
 }
 
 pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
