@@ -22,6 +22,10 @@ pub struct Credentials {
     pub password: Secret<String>,
 }
 
+/// Performs authentication using the provided `credentials`.
+///
+/// If the credentials are validated then this function returns the [`crate::domain::UserId`].
+/// Otherwise it returns an [`AuthError`].
 #[tracing::instrument(name = "Authenticate", skip(pool, credentials))]
 pub async fn authenticate(
     pool: &sqlx::PgPool,
@@ -29,9 +33,9 @@ pub async fn authenticate(
 ) -> Result<UserId, AuthError> {
     let mut user_id = None;
     let mut expected_password_hash = Secret::new(
-        "$argon2id$v=19$m=15000,t=2,p=1$\
-gZiV/M1gPc22ElAH/Jh1Hw$\
-CWOrkoo7oJBQ/iyh7uJ0LO2aLEfrHwTWllSAxT0zRno"
+        "$argon2id$v=19$m=15000,t=2,p=1\
+        $BokfVUn7/enzPijRjUFZ+A\
+        $xblte87CXTeoN+2scm5DUwQFOgYFM2vglzpoZsqeRPU"
             .into(),
     );
 
@@ -58,7 +62,7 @@ CWOrkoo7oJBQ/iyh7uJ0LO2aLEfrHwTWllSAxT0zRno"
     //
 
     user_id
-        .ok_or_else(|| anyhow!("Unknown username"))
+        .ok_or_else(|| anyhow!("Unknown email"))
         .map_err(AuthError::InvalidCredentials)
 }
 
@@ -167,12 +171,45 @@ mod tests {
     use crate::configuration::get_configuration;
     use crate::domain::UserEmail;
     use crate::startup::get_connection_pool;
-    use fake::faker::internet::en::SafeEmail as FakerSafeEmail;
+    use fake::faker::internet::en::{Password as FakerPassword, SafeEmail as FakerSafeEmail};
     use fake::Fake;
 
     async fn get_pool() -> sqlx::PgPool {
         let config = get_configuration().unwrap();
         get_connection_pool(&config.database).await.unwrap()
+    }
+
+    #[tokio::test]
+    async fn authenticate_for_a_non_existing_user_should_return_an_error() {
+        let pool = get_pool().await;
+
+        let credentials = Credentials {
+            email: UserEmail(FakerSafeEmail().fake::<String>()),
+            password: Secret::from(FakerPassword(10..20).fake::<String>()),
+        };
+
+        let result = authenticate(&pool, credentials).await;
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            AuthError::InvalidCredentials(_) => {}
+            AuthError::Unexpected(err) => {
+                panic!(
+                    "expected a InvalidCredentials error, got Unexpected: {}",
+                    err
+                )
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn compute_password_hash_should_work() {
+        let password = Secret::from("foobar".to_string());
+
+        let result = compute_password_hash(password);
+        assert!(result.is_ok());
+
+        let password_hash = result.unwrap();
+        assert!(!password_hash.expose_secret().is_empty());
     }
 
     #[tokio::test]
