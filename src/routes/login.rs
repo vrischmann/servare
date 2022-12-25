@@ -8,6 +8,7 @@ use axum::http::header;
 use axum::http::StatusCode;
 use axum::response::{Html, IntoResponse, Response};
 use secrecy::Secret;
+use tracing::{event, Level};
 
 #[derive(askama::Template)]
 #[template(path = "login.html.j2")]
@@ -75,12 +76,16 @@ pub async fn submit(
         Ok(user_id) => {
             tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
+            event!(Level::DEBUG, "authentication succeeded");
+
             // TODO(vincent): handle session
 
             Ok(see_other("/"))
         }
 
         Err(err) => {
+            event!(Level::WARN, "authentication failed");
+
             let err = match err {
                 AuthError::InvalidCredentials(_) => LoginError::Auth(err.into()),
                 AuthError::Unexpected(_) => LoginError::Unexpected(err.into()),
