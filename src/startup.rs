@@ -117,11 +117,7 @@ fn create_server(
         )
         .nest_service("/assets", assets_service)
         .fallback(fallback_handler)
-        .layer(
-            ServiceBuilder::new()
-                .layer(tower_http::trace::TraceLayer::new_for_http())
-                .layer(session_layer),
-        )
+        .layer(ServiceBuilder::new().layer(tower_http::trace::TraceLayer::new_for_http()))
         .with_state(state);
 
     let web_server_builder = axum::Server::from_tcp(listener)?;
