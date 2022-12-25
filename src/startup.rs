@@ -1,8 +1,10 @@
 use crate::configuration::{ApplicationConfig, DatabaseConfig, TEMConfig};
 use crate::{routes, tem};
+use axum::extract::FromRef;
 use axum::response::IntoResponse;
 use axum::routing::get;
 use axum::routing::IntoMakeService;
+use axum_extra::extract::cookie::Key as CookieKey;
 use hyper::server::conn::AddrIncoming;
 use secrecy::ExposeSecret;
 use sqlx::postgres::PgPoolOptions;
@@ -13,6 +15,8 @@ use tracing::error;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
+    #[error("invalid cookie key")]
+    InvalidCookieKey(#[source] anyhow::Error),
     #[error("hyper server failed")]
     Hyper(#[from] hyper::Error),
     #[error("unable to bind tcp listener")]
@@ -23,9 +27,16 @@ pub enum Error {
 
 type Server = axum::Server<AddrIncoming, IntoMakeService<axum::Router>>;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ApplicationState {
     pub pool: Arc<PgPool>,
+    pub cookie_key: CookieKey,
+}
+
+impl FromRef<ApplicationState> for CookieKey {
+    fn from_ref(state: &ApplicationState) -> Self {
+        state.cookie_key.clone()
+    }
 }
 
 pub struct Application {
@@ -34,15 +45,34 @@ pub struct Application {
 }
 
 impl Application {
+    /// Builds a new application using `config` and `pool`.
+    ///
+    /// The application will have started but not completed, you need to await
+    /// on `run_until_stopped` to run the server to completion.
     pub fn build(config: &ApplicationConfig, pool: PgPool) -> Result<Application, Error> {
+        // Build the TCP listener
         let listener = std::net::TcpListener::bind(format!("{}:{}", config.host, config.port))
             .map_err(Into::<Error>::into)?;
         let port = listener.local_addr().unwrap().port();
 
-        let state = ApplicationState {
-            pool: Arc::new(pool),
+        // Get the cookie key from the configuration
+        let cookie_key = {
+            let data = hex::decode(config.cookie_key.expose_secret().as_bytes())
+                .map_err(Into::<anyhow::Error>::into)
+                .map_err(Error::InvalidCookieKey)?;
+
+            CookieKey::try_from(data.as_slice())
+                .map_err(Into::<anyhow::Error>::into)
+                .map_err(Error::InvalidCookieKey)?
         };
 
+        // Build the application state
+        let state = ApplicationState {
+            pool: Arc::new(pool),
+            cookie_key,
+        };
+
+        // Finally create the HTTP server
         let server: Server = create_server(listener, state)?;
 
         Ok(Application { port, server })
