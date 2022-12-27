@@ -22,16 +22,17 @@ anyhow = "1"
 argon2 = { version = "0.4", features = ["std"] }
 
 # SQL on steroids
-sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "time", "migrate", "offline"] }
+sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "time", "migrate", "offline", "json"] }
 
 # HTTP stuff
 tokio = { version = "1.2", features = ["signal", "macros"] }
-axum = { version = "0.6", default-features = false, features = ["tokio", "http1", "form"] }
-axum-extra = { version = "0.4", default-features = false, features = ["cookie", "cookie-private"] }
 tower = "0.4"
 tower-http = { version = "0.3", features = ["trace", "fs"] }
-http = "0.2"
-hyper = "0.14"
+actix-web = "4"
+actix-web-lab = "0.16"
+actix-web-flash-messages = { version = "0.4", features = ["cookies"] }
+actix-session = "0.6"
+actix-files = "0.6.2"
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls", "cookies"] }
 
 # Other stuff
@@ -53,6 +54,10 @@ tracing = { version = "0.1", features = ["log"] }
 tracing-subscriber = { version = "0.3", features = ["registry", "env-filter"] }
 tracing-bunyan-formatter = "0.3"
 tracing-log = "0.1"
+tracing-actix-web = "0.6"
+
+# Hacks
+async-trait = "0.1"
 
 [dev-dependencies]
 fake = "2.5"
