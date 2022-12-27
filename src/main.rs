@@ -36,7 +36,7 @@ fn main() {
     };
 
     // Build the web application
-    let app = match Application::build(&config.application, pool) {
+    let app = match Application::build(&config.application, &config.session, pool) {
         Ok(app) => app,
         Err(err) => {
             error!(err = %err, "failed to build application");

@@ -1,7 +1,7 @@
 use crate::domain::UserEmail;
 use crate::tem;
 use secrecy::{ExposeSecret, Secret};
-use std::time::Duration;
+use std::time::Duration as StdDuration;
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct ApplicationConfig {
@@ -9,7 +9,24 @@ pub struct ApplicationConfig {
     pub host: String,
     pub port: usize,
     pub base_url: String,
-    pub cookie_key: Secret<String>,
+    pub cookie_signing_key: Secret<String>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct SessionConfig {
+    pub ttl_seconds: u64,
+    pub cleanup_enabled: bool,
+    pub cleanup_interval_seconds: i64,
+}
+
+impl SessionConfig {
+    pub fn ttl(&self) -> StdDuration {
+        StdDuration::from_secs(self.ttl_seconds)
+    }
+
+    pub fn cleanup_interval(&self) -> time::Duration {
+        time::Duration::seconds(self.cleanup_interval_seconds)
+    }
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -48,14 +65,15 @@ impl TEMConfig {
         UserEmail::parse(self.sender_email.clone())
     }
 
-    pub fn timeout(&self) -> Duration {
-        Duration::from_millis(self.timeout_milliseconds)
+    pub fn timeout(&self) -> StdDuration {
+        StdDuration::from_millis(self.timeout_milliseconds)
     }
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct Config {
     pub application: ApplicationConfig,
+    pub session: SessionConfig,
     pub database: DatabaseConfig,
     pub tem: TEMConfig,
 }

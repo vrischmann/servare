@@ -168,7 +168,7 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
 
     // Build and start the application
     let app_pool = pool.clone();
-    let app = Application::build(&configuration.application, app_pool)
+    let app = Application::build(&configuration.application, &configuration.session, app_pool)
         .expect("Failed to build application");
     let app_port = app.port;
 

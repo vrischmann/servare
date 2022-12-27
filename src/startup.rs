@@ -1,44 +1,30 @@
-use crate::configuration::{ApplicationConfig, DatabaseConfig, TEMConfig};
+use crate::configuration::{ApplicationConfig, DatabaseConfig, SessionConfig, TEMConfig};
+use crate::sessions::{CleanupConfig as SessionStoreCleanupConfig, PgSessionStore};
 use crate::{routes, tem};
-use axum::extract::FromRef;
-use axum::response::IntoResponse;
-use axum::routing::get;
-use axum::routing::IntoMakeService;
-use axum_extra::extract::cookie::Key as CookieKey;
-use hyper::server::conn::AddrIncoming;
-use secrecy::ExposeSecret;
+use actix_session::SessionMiddleware;
+use actix_web::{cookie, dev::Server};
+use actix_web::{web, App, HttpServer};
+use secrecy::{ExposeSecret, Secret};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
-use std::sync::Arc;
+use std::net::TcpListener;
+use std::time::Duration as StdDuration;
 use std::time::Duration;
-use tower::ServiceBuilder;
 use tracing::error;
+use tracing_actix_web::TracingLogger;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("invalid cookie key")]
     InvalidCookieKey(#[source] anyhow::Error),
-    #[error("hyper server failed")]
-    Hyper(#[from] hyper::Error),
     #[error("unable to bind tcp listener")]
     IO(#[from] std::io::Error),
     #[error(transparent)]
     Unexpected(#[from] anyhow::Error),
 }
 
-type Server = axum::Server<AddrIncoming, IntoMakeService<axum::Router>>;
-
 #[derive(Clone)]
-pub struct ApplicationState {
-    pub pool: Arc<PgPool>,
-    pub cookie_key: CookieKey,
-}
-
-impl FromRef<ApplicationState> for CookieKey {
-    fn from_ref(state: &ApplicationState) -> Self {
-        state.cookie_key.clone()
-    }
-}
+pub struct HmacSecret<'a>(pub &'a Secret<String>);
 
 pub struct Application {
     pub port: u16,
@@ -50,31 +36,33 @@ impl Application {
     ///
     /// The application will have started but not completed, you need to await
     /// on `run_until_stopped` to run the server to completion.
-    pub fn build(config: &ApplicationConfig, pool: PgPool) -> Result<Application, Error> {
+    pub fn build(
+        config: &ApplicationConfig,
+        session_config: &SessionConfig,
+        pool: PgPool,
+    ) -> Result<Application, Error> {
+        // Build the session store
+        let session_store = PgSessionStore::new(
+            pool.clone(),
+            SessionStoreCleanupConfig::new(
+                session_config.cleanup_enabled,
+                session_config.cleanup_interval(),
+            ),
+        );
+
         // Build the TCP listener
         let listener = std::net::TcpListener::bind(format!("{}:{}", config.host, config.port))
             .map_err(Into::<Error>::into)?;
         let port = listener.local_addr().unwrap().port();
 
-        // Get the cookie key from the configuration
-        let cookie_key = {
-            let data = hex::decode(config.cookie_key.expose_secret().as_bytes())
-                .map_err(Into::<anyhow::Error>::into)
-                .map_err(Error::InvalidCookieKey)?;
-
-            CookieKey::try_from(data.as_slice())
-                .map_err(Into::<anyhow::Error>::into)
-                .map_err(Error::InvalidCookieKey)?
-        };
-
-        // Build the application state
-        let state = ApplicationState {
-            pool: Arc::new(pool),
-            cookie_key,
-        };
-
         // Finally create the HTTP server
-        let server: Server = create_server(listener, state)?;
+        let server: Server = create_server(
+            listener,
+            pool,
+            HmacSecret(&config.cookie_signing_key),
+            session_store,
+            session_config.ttl(),
+        )?;
 
         Ok(Application { port, server })
     }
@@ -86,45 +74,41 @@ impl Application {
     }
 }
 
-async fn fallback_handler() -> (http::StatusCode, String) {
-    (http::StatusCode::NOT_FOUND, "Page Not Found".to_owned())
-}
-
-async fn error_handler(err: std::io::Error) -> impl IntoResponse {
-    error!(err = ?err, "got error");
-
-    (
-        http::StatusCode::NOT_FOUND,
-        "Internal Server Error".to_owned(),
-    )
-}
-
 fn create_server(
-    listener: std::net::TcpListener,
-    state: ApplicationState,
+    listener: TcpListener,
+    pool: PgPool,
+    hmac_secret: HmacSecret,
+    session_store: PgSessionStore,
+    session_ttl: StdDuration,
 ) -> Result<Server, anyhow::Error> {
-    // Serves the assets from disk
-    let assets_service = {
-        let serve_dir = tower_http::services::ServeDir::new("assets");
-        axum::routing::get_service(serve_dir).handle_error(error_handler)
-    };
+    let pool = web::Data::new(pool);
 
-    let web_app = axum::Router::new()
-        .route("/", get(routes::home))
-        .route(
-            "/login",
-            get(routes::login::form).post(routes::login::submit),
-        )
-        .nest_service("/assets", assets_service)
-        .fallback(fallback_handler)
-        .layer(ServiceBuilder::new().layer(tower_http::trace::TraceLayer::new_for_http()))
-        .with_state(state);
+    let cookie_signing_key = cookie::Key::from(hmac_secret.0.expose_secret().as_bytes());
+    let session_ttl = time::Duration::try_from(session_ttl)
+        .expect("StdDuration should always be convertible to time::Duration");
 
-    let web_server_builder = axum::Server::from_tcp(listener)?;
+    let server = HttpServer::new(move || {
+        let session_middleware =
+            SessionMiddleware::builder(session_store.clone(), cookie_signing_key.clone())
+                .session_length(actix_session::SessionLength::BrowserSession {
+                    state_ttl: Some(session_ttl),
+                })
+                .build();
 
-    let web_server = web_server_builder.serve(web_app.into_make_service());
+        App::new()
+            .wrap(session_middleware)
+            .wrap(TracingLogger::default())
+            .service(actix_files::Files::new("/assets", "./assets").prefer_utf8(true))
+            .route("/", web::get().to(routes::home::home))
+            .route("/status", web::get().to(routes::status))
+            .route("/login", web::get().to(routes::login::form))
+            .route("/login", web::post().to(routes::login::submit))
+            .app_data(pool.clone())
+    })
+    .listen(listener)?
+    .run();
 
-    Ok(web_server)
+    Ok(server)
 }
 
 pub async fn get_connection_pool(config: &DatabaseConfig) -> Result<PgPool, sqlx::Error> {

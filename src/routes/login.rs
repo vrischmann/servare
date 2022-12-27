@@ -1,31 +1,45 @@
 use crate::authentication::{authenticate, AuthError, Credentials};
-use crate::domain::{User, UserEmail};
-use crate::routes::{see_other, Error};
-use crate::startup::ApplicationState;
+use crate::domain::{UserEmail, UserId};
+use crate::error_chain_fmt;
+use crate::routes::{e500, see_other};
+use crate::sessions::TypedSession;
+use actix_web::error::InternalError;
+use actix_web::http;
+use actix_web::web;
+use actix_web::HttpResponse;
 use askama::Template;
-use axum::extract::{Form, State};
-use axum::http::header;
-use axum::http::StatusCode;
-use axum::response::{Html, IntoResponse, Response};
 use secrecy::Secret;
+use sqlx::PgPool;
+use std::fmt;
 use tracing::{event, Level};
 
 #[derive(askama::Template)]
 #[template(path = "login.html.j2")]
 struct LoginTemplate {
-    pub user: Option<User>,
+    pub user_id: Option<UserId>,
 }
 
-#[tracing::instrument(name = "Login form")]
-pub async fn form() -> Result<Html<String>, Error> {
-    let tpl = LoginTemplate { user: None };
+#[tracing::instrument(name = "Login form", skip(session))]
+pub async fn form(session: TypedSession) -> Result<HttpResponse, InternalError<anyhow::Error>> {
+    let user_id = session
+        .get_user_id()
+        .map_err(Into::<anyhow::Error>::into)
+        .map_err(e500)?;
 
-    let response = Html(tpl.render()?);
+    let tpl = LoginTemplate { user_id };
+    let tpl_rendered = tpl
+        .render()
+        .map_err(Into::<anyhow::Error>::into)
+        .map_err(e500)?;
+
+    let response = HttpResponse::Ok()
+        .content_type(http::header::ContentType::html())
+        .body(tpl_rendered);
 
     Ok(response)
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(thiserror::Error)]
 pub enum LoginError {
     #[error("Authentication failed")]
     Auth(#[source] anyhow::Error),
@@ -33,22 +47,9 @@ pub enum LoginError {
     Unexpected(#[source] anyhow::Error),
 }
 
-impl IntoResponse for LoginError {
-    fn into_response(self) -> Response {
-        let status_code = match self {
-            LoginError::Auth(_) => StatusCode::SEE_OTHER,
-            LoginError::Unexpected(_) => StatusCode::SEE_OTHER,
-        };
-
-        // TODO(vincent): how de we log here ??
-
-        let response = (
-            status_code,
-            [(header::LOCATION, "/login")],
-            status_code.to_string(),
-        );
-
-        response.into_response()
+impl fmt::Debug for LoginError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        error_chain_fmt(self, f)
     }
 }
 
@@ -58,18 +59,26 @@ pub struct LoginFormData {
     pub password: String,
 }
 
-#[tracing::instrument(name = "Login submit", skip(state, form_data), fields())]
+#[tracing::instrument(
+    name = "Login submit",
+    skip(pool, session, form_data),
+    fields(
+        username = tracing::field::Empty,
+        user_id = tracing::field::Empty,
+    )
+)]
 pub async fn submit(
-    State(state): State<ApplicationState>,
-    Form(form_data): Form<LoginFormData>,
-) -> Result<impl IntoResponse, LoginError> {
-    let pool = &state.pool;
+    pool: web::Data<PgPool>,
+    session: TypedSession,
+    form_data: web::Form<LoginFormData>,
+) -> Result<HttpResponse, InternalError<LoginError>> {
+    let pool = &pool;
 
     tracing::Span::current().record("email", &tracing::field::display(&form_data.email));
 
     let credentials = Credentials {
-        email: form_data.email,
-        password: Secret::from(form_data.password),
+        email: form_data.0.email,
+        password: Secret::from(form_data.0.password),
     };
 
     match authenticate(pool, credentials).await {
@@ -78,7 +87,10 @@ pub async fn submit(
 
             event!(Level::DEBUG, "authentication succeeded");
 
-            // TODO(vincent): handle session
+            session.renew();
+            session
+                .insert_user_id(user_id)
+                .map_err(|err| login_redirect(LoginError::Unexpected(err.into())))?;
 
             Ok(see_other("/"))
         }
@@ -91,7 +103,17 @@ pub async fn submit(
                 AuthError::Unexpected(_) => LoginError::Unexpected(err.into()),
             };
 
-            Err(err)
+            Err(login_redirect(err))
         }
     }
+}
+
+fn login_redirect(err: LoginError) -> InternalError<LoginError> {
+    // FlashMessage::error(err.to_string()).send();
+
+    let response = HttpResponse::SeeOther()
+        .insert_header((http::header::LOCATION, "/login"))
+        .finish();
+
+    InternalError::from_response(err, response)
 }
