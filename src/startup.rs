@@ -1,6 +1,6 @@
 use crate::configuration::{ApplicationConfig, DatabaseConfig, SessionConfig, TEMConfig};
 use crate::sessions::{CleanupConfig as SessionStoreCleanupConfig, PgSessionStore};
-use crate::{routes, tem};
+use crate::{routes::*, tem};
 use actix_session::SessionMiddleware;
 use actix_web::{cookie, dev::Server};
 use actix_web::{web, App, HttpServer};
@@ -99,10 +99,11 @@ fn create_server(
             .wrap(session_middleware)
             .wrap(TracingLogger::default())
             .service(actix_files::Files::new("/assets", "./assets").prefer_utf8(true))
-            .route("/", web::get().to(routes::home::home))
-            .route("/status", web::get().to(routes::status))
-            .route("/login", web::get().to(routes::login::form))
-            .route("/login", web::post().to(routes::login::submit))
+            .route("/", web::get().to(handle_home))
+            .route("/status", web::get().to(handle_status))
+            .route("/login", web::get().to(handle_login_form))
+            .route("/login", web::post().to(handle_login_submit))
+            .route("/logout", web::post().to(handle_logout))
             .app_data(pool.clone())
     })
     .listen(listener)?
