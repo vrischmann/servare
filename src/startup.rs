@@ -104,7 +104,7 @@ fn create_server(
             .route("/status", web::get().to(handle_status))
             .route("/login", web::get().to(handle_login_form))
             .route("/login", web::post().to(handle_login_submit))
-            .route("/logout", web::post().to(handle_logout))
+            .route("/logout", web::to(handle_logout))
             .app_data(pool.clone())
     })
     .listen(listener)?
