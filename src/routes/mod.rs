@@ -1,55 +1,30 @@
-use crate::domain::User;
-use askama::Template;
-use axum::http::StatusCode;
-use axum::response::Html;
-use axum::response::IntoResponse;
-use axum::response::Response;
+use actix_web::http::{header, StatusCode};
+use actix_web::HttpResponse;
+use std::fmt;
 
+pub mod home;
 pub mod login;
 
-#[derive(thiserror::Error, Debug)]
-pub enum Error {
-    #[error(transparent)]
-    Http(#[from] http::Error),
-    #[error(transparent)]
-    Askama(#[from] askama::Error),
-    #[error(transparent)]
-    Unexpected(#[from] anyhow::Error),
-}
-
-impl IntoResponse for Error {
-    fn into_response(self) -> Response {
-        let status_code = match self {
-            Error::Http(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::Askama(_) => StatusCode::INTERNAL_SERVER_ERROR,
-            Error::Unexpected(_) => StatusCode::INTERNAL_SERVER_ERROR,
-        };
-
-        (status_code, status_code.to_string()).into_response()
-    }
-}
-
-pub fn see_other<T>(location: T) -> impl IntoResponse
+pub fn e500<T>(err: T) -> actix_web::error::InternalError<T>
 where
-    T: AsRef<str>,
+    T: fmt::Debug + fmt::Display + 'static,
 {
-    Response::builder()
-        .status(StatusCode::SEE_OTHER)
-        .header("Location", location.as_ref())
-        .body(axum::body::Empty::new())
-        .map_err(Into::<Error>::into)
+    actix_web::error::InternalError::new(err, StatusCode::INTERNAL_SERVER_ERROR)
 }
 
-#[derive(askama::Template)]
-#[template(path = "home.html.j2")]
-struct HomeTemplate {
-    pub user: Option<User>,
+// pub fn e400<T>(err: T) -> actix_web::error::InternalError<T>
+// where
+//     T: fmt::Debug + fmt::Display + 'static,
+// {
+//     actix_web::error::InternalError::new(err, StatusCode::BAD_REQUEST)
+// }
+
+pub fn see_other(location: &str) -> HttpResponse {
+    HttpResponse::SeeOther()
+        .insert_header((header::LOCATION, location))
+        .finish()
 }
 
-pub async fn home() -> Result<Html<String>, Error> {
-    let tpl = HomeTemplate { user: None };
-
-    let response = Html(tpl.render()?);
-
-    Ok(response)
+pub async fn status() -> HttpResponse {
+    HttpResponse::Ok().finish()
 }
