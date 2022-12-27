@@ -93,6 +93,7 @@ fn create_server(
                 .session_length(actix_session::SessionLength::BrowserSession {
                     state_ttl: Some(session_ttl),
                 })
+                .cookie_name("session_id".to_string())
                 .build();
 
         App::new()
