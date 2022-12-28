@@ -7,13 +7,13 @@ use actix_web::{web, App, HttpServer};
 use actix_web_flash_messages::storage::CookieMessageStore;
 use actix_web_flash_messages::FlashMessagesFramework;
 use secrecy::{ExposeSecret, Secret};
-use sqlx::postgres::PgPoolOptions;
-use sqlx::PgPool;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
+use sqlx::{ConnectOptions, PgPool};
 use std::net::TcpListener;
 use std::time::Duration as StdDuration;
-use std::time::Duration;
 use tracing::error;
 use tracing_actix_web::TracingLogger;
+use tracing_log::log::LevelFilter;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -126,10 +126,19 @@ fn create_server(
 }
 
 pub async fn get_connection_pool(config: &DatabaseConfig) -> Result<PgPool, sqlx::Error> {
+    let mut connect_options = PgConnectOptions::new()
+        .username(&config.username)
+        .password(config.password.expose_secret())
+        .port(config.port)
+        .host(&config.host)
+        .database(&config.name);
+    connect_options.log_slow_statements(LevelFilter::Warn, StdDuration::from_millis(500));
+    connect_options.log_statements(LevelFilter::Trace);
+
     PgPoolOptions::new()
         .max_connections(1024)
-        .acquire_timeout(Duration::from_secs(1))
-        .connect(config.connection_string().expose_secret())
+        .acquire_timeout(StdDuration::from_secs(1))
+        .connect_with(connect_options)
         .await
 }
 
