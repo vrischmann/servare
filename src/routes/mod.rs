@@ -3,11 +3,11 @@ use crate::domain::{UserEmail, UserId};
 use crate::error_chain_fmt;
 use crate::sessions::TypedSession;
 use actix_web::error::InternalError;
-use actix_web::http;
 use actix_web::http::header::ContentType;
 use actix_web::http::{header, StatusCode};
-use actix_web::web;
 use actix_web::HttpResponse;
+use actix_web::{http, web};
+use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use askama::Template;
 use secrecy::Secret;
 use sqlx::PgPool;
@@ -44,18 +44,34 @@ pub async fn handle_status() -> HttpResponse {
 #[template(path = "home.html.j2")]
 struct HomeTemplate {
     pub user_id: Option<UserId>,
+    pub flash_messages: IncomingFlashMessages,
 }
 
-#[tracing::instrument(name = "Home", skip(session))]
+#[tracing::instrument(
+    name = "Home",
+    skip(session, flash_messages),
+    fields(
+        user_id = tracing::field::Empty,
+    )
+)]
 pub async fn handle_home(
     session: TypedSession,
+    flash_messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, InternalError<anyhow::Error>> {
     let user_id = session
         .get_user_id()
         .map_err(Into::<anyhow::Error>::into)
         .map_err(e500)?;
+    if let Some(ref user_id) = user_id {
+        tracing::Span::current().record("user_id", &tracing::field::display(user_id));
+    }
 
-    let tpl = HomeTemplate { user_id };
+    //
+
+    let tpl = HomeTemplate {
+        user_id,
+        flash_messages,
+    };
     let tpl_rendered = tpl
         .render()
         .map_err(Into::<anyhow::Error>::into)
@@ -74,18 +90,34 @@ pub async fn handle_home(
 #[template(path = "login.html.j2")]
 struct LoginTemplate {
     pub user_id: Option<UserId>,
+    pub flash_messages: IncomingFlashMessages,
 }
 
-#[tracing::instrument(name = "Login form", skip(session))]
+#[tracing::instrument(
+    name = "Login form",
+    skip(session, flash_messages),
+    fields(
+        user_id = tracing::field::Empty,
+    )
+)]
 pub async fn handle_login_form(
     session: TypedSession,
+    flash_messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, InternalError<anyhow::Error>> {
     let user_id = session
         .get_user_id()
         .map_err(Into::<anyhow::Error>::into)
         .map_err(e500)?;
+    if let Some(ref user_id) = user_id {
+        tracing::Span::current().record("user_id", &tracing::field::display(user_id));
+    }
 
-    let tpl = LoginTemplate { user_id };
+    //
+
+    let tpl = LoginTemplate {
+        user_id,
+        flash_messages,
+    };
     let tpl_rendered = tpl
         .render()
         .map_err(Into::<anyhow::Error>::into)
@@ -144,7 +176,8 @@ pub async fn handle_login_submit(
         Ok(user_id) => {
             tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
-            event!(Level::DEBUG, "authentication succeeded");
+            event!(Level::DEBUG, "login successful");
+            FlashMessage::info("Login successful").send();
 
             session.renew();
             session
@@ -156,6 +189,7 @@ pub async fn handle_login_submit(
 
         Err(err) => {
             event!(Level::WARN, "authentication failed");
+            FlashMessage::error("Login failed").send();
 
             let err = match err {
                 AuthError::InvalidCredentials(_) => LoginError::Auth(err.into()),
@@ -168,7 +202,7 @@ pub async fn handle_login_submit(
 }
 
 fn login_redirect(err: LoginError) -> InternalError<LoginError> {
-    // FlashMessage::error(err.to_string()).send();
+    FlashMessage::error(err.to_string()).send();
 
     let response = HttpResponse::SeeOther()
         .insert_header((http::header::LOCATION, "/login"))

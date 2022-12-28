@@ -1,5 +1,5 @@
 use crate::helpers::LoginBody;
-use crate::helpers::{assert_is_redirect_to, read_body, spawn_app};
+use crate::helpers::{assert_is_redirect_to, spawn_app};
 
 #[tokio::test]
 async fn login_form_should_work() {
@@ -24,6 +24,22 @@ async fn login_should_work() {
     let login_response = app.post_login(&login_body).await;
     assert_is_redirect_to(&login_response, "/");
 
-    let login_response_body = read_body(login_response).await;
-    assert!(login_response_body.contains("Successully logged in"));
+    let home_response = app.get_home_html().await;
+    assert!(home_response.contains("Login successful"));
+}
+
+#[tokio::test]
+async fn login_with_bad_credentials_should_fail() {
+    let app = spawn_app().await;
+
+    let login_body = LoginBody {
+        email: app.test_user.email.clone(),
+        password: "hello".to_string(),
+    };
+
+    let login_response = app.post_login(&login_body).await;
+    assert_is_redirect_to(&login_response, "/login");
+
+    let home_response = app.get_home_html().await;
+    assert!(home_response.contains("Login failed"));
 }

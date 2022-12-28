@@ -22,7 +22,16 @@
         </header>
 
         <div class="content">
-            {% block content %}{% endblock %}
+            {% for msg in flash_messages.iter() -%}
+            {%- let flash_class -%}
+            {%- if msg.level() == actix_web_flash_messages::Level::Error -%}
+            {%- let flash_class = "flash-error" -%}
+            {%- else -%}
+            {%- let flash_class = "flash-info" -%}
+            {%- endif -%}
+            <p class="flash {{ flash_class }}"><i>{{ msg.content() }}</i></p>
+            {%- endfor -%}
+            {%- block content -%}{%- endblock %}
         </div>
     </div>
 </body>
