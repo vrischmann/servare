@@ -4,6 +4,8 @@ use crate::{routes::*, tem};
 use actix_session::SessionMiddleware;
 use actix_web::{cookie, dev::Server};
 use actix_web::{web, App, HttpServer};
+use actix_web_flash_messages::storage::CookieMessageStore;
+use actix_web_flash_messages::FlashMessagesFramework;
 use secrecy::{ExposeSecret, Secret};
 use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
@@ -41,6 +43,14 @@ impl Application {
         session_config: &SessionConfig,
         pool: PgPool,
     ) -> Result<Application, Error> {
+        let cookie_signing_key =
+            cookie::Key::from(config.cookie_signing_key.expose_secret().as_bytes());
+
+        // Flash messages
+        let flash_messages_store = CookieMessageStore::builder(cookie_signing_key.clone()).build();
+        let flash_messages_framework =
+            FlashMessagesFramework::builder(flash_messages_store).build();
+
         // Build the session store
         let session_store = PgSessionStore::new(
             pool.clone(),
@@ -59,9 +69,10 @@ impl Application {
         let server: Server = create_server(
             listener,
             pool,
-            HmacSecret(&config.cookie_signing_key),
+            cookie_signing_key,
             session_store,
             session_config.ttl(),
+            flash_messages_framework,
         )?;
 
         Ok(Application { port, server })
@@ -77,13 +88,13 @@ impl Application {
 fn create_server(
     listener: TcpListener,
     pool: PgPool,
-    hmac_secret: HmacSecret,
+    cookie_signing_key: actix_web::cookie::Key,
     session_store: PgSessionStore,
     session_ttl: StdDuration,
+    flash_messages_framework: FlashMessagesFramework,
 ) -> Result<Server, anyhow::Error> {
     let pool = web::Data::new(pool);
 
-    let cookie_signing_key = cookie::Key::from(hmac_secret.0.expose_secret().as_bytes());
     let session_ttl = time::Duration::try_from(session_ttl)
         .expect("StdDuration should always be convertible to time::Duration");
 
@@ -97,6 +108,7 @@ fn create_server(
                 .build();
 
         App::new()
+            .wrap(flash_messages_framework.clone())
             .wrap(session_middleware)
             .wrap(TracingLogger::default())
             .service(actix_files::Files::new("/assets", "./assets").prefer_utf8(true))
