@@ -24,7 +24,8 @@ where
         .with_default_directive(LevelFilter::INFO.into())
         .from_env_lossy();
 
-    let formatting_layer = BunyanFormattingLayer::new(config.name.clone(), sink);
+    let formatting_layer = BunyanFormattingLayer::new(config.name.clone(), sink)
+        .skip_fields(&["file", "line", "target"]);
 
     match config.jaeger_config {
         Some(jaeger_config) => {
