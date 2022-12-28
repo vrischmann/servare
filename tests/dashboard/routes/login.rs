@@ -1,5 +1,5 @@
 use crate::helpers::LoginBody;
-use crate::helpers::{assert_is_redirect_to, spawn_app};
+use crate::helpers::{assert_is_redirect_to, read_body, spawn_app};
 
 #[tokio::test]
 async fn login_form_should_work() {
@@ -24,5 +24,6 @@ async fn login_should_work() {
     let login_response = app.post_login(&login_body).await;
     assert_is_redirect_to(&login_response, "/");
 
-    // TODO(vincent): need to add and validate flash messages here
+    let login_response_body = read_body(login_response).await;
+    assert!(login_response_body.contains("Successully logged in"));
 }
