@@ -1,6 +1,6 @@
 use crate::domain::UserEmail;
 use crate::tem;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::Secret;
 use std::time::Duration as StdDuration;
 
 #[derive(Clone, Debug, serde::Deserialize)]
@@ -38,18 +38,7 @@ pub struct DatabaseConfig {
     pub name: String,
 }
 
-impl DatabaseConfig {
-    pub fn connection_string(&self) -> Secret<String> {
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.username,
-            self.password.expose_secret(),
-            self.host,
-            self.port,
-            self.name
-        ))
-    }
-}
+impl DatabaseConfig {}
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct TEMConfig {
