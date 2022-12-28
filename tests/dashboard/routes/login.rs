@@ -41,5 +41,5 @@ async fn login_with_bad_credentials_should_fail() {
     assert_is_redirect_to(&login_response, "/login");
 
     let home_response = app.get_home_html().await;
-    assert!(home_response.contains("Login failed"));
+    assert!(home_response.contains("Authentication failed"));
 }
