@@ -176,8 +176,8 @@ pub async fn handle_login_submit(
         Ok(user_id) => {
             tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
-            event!(Level::DEBUG, "login successful");
-            FlashMessage::info("Login successful").send();
+            event!(Level::DEBUG, "successfully logged in");
+            FlashMessage::info("Successfully logged in").send();
 
             session.renew();
             session
@@ -189,7 +189,6 @@ pub async fn handle_login_submit(
 
         Err(err) => {
             event!(Level::WARN, "authentication failed");
-            FlashMessage::error("Login failed").send();
 
             let err = match err {
                 AuthError::InvalidCredentials(_) => LoginError::Auth(err.into()),

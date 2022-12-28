@@ -25,7 +25,7 @@ async fn login_should_work() {
     assert_is_redirect_to(&login_response, "/");
 
     let home_response = app.get_home_html().await;
-    assert!(home_response.contains("Login successful"));
+    assert!(home_response.contains("Successfully logged in"));
 }
 
 #[tokio::test]
