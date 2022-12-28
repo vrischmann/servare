@@ -211,10 +211,3 @@ pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
     );
     assert_eq!(response.headers().get("Location").unwrap(), location);
 }
-
-pub async fn read_body(response: reqwest::Response) -> String {
-    response
-        .text()
-        .await
-        .expect("failed to read the response body")
-}
