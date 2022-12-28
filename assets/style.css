@@ -5,7 +5,8 @@
 
 :root {
     --red-1: #f87171;
-    --red-2: #dc2626;
+    --red-2: #d74848;
+    --red-3: #d61b1b;
     --yellow-1: #facc15;
     --yellow-2: #ca8a04;
     --orange-1: #fb923c;
@@ -46,29 +47,66 @@ form>label {
     padding-top: 2.5em;
 }
 
-.menu {
-    display: grid;
-    grid-auto-flow: column;
-    grid-auto-columns: max-content;
-    column-gap: 4em;
-}
-
-.menu a {
-    padding: 1rem;
-    border-radius: 0.25em;
-    background-color: var(--red-1);
-    color: white;
-    text-decoration: none;
-}
-
-.menu a:hover {
-    background-color: var(--red-2);
-}
-
 .content {
     margin-top: 3em;
     padding-top: 1em;
     /* border-top: 1px black solid;*/
+}
+
+/* Header stuff */
+
+header {
+    grid-template-columns: minmax(300px, 400px) auto minmax(100px, max-content);
+    grid-template-areas: "logo nav login";
+    display: grid;
+    height: 50px;
+    margin-top: 3rem;
+    background-color: var(--red-3);
+}
+
+#logo {
+    grid-area: logo;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: bold;
+    color: white;
+}
+
+header a {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    text-decoration: none;
+}
+
+nav {
+    grid-area: nav;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+}
+
+header a.login {
+    grid-area: login;
+    background-color: var(--red-2);
+}
+
+header input.logout {
+    grid-area: login;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    background-color: var(--red-2);
+    color: white;
+    font-size: 16px;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+header a:hover {
+    background-color: var(--red-1);
 }
 
 /* Login */
@@ -104,7 +142,7 @@ p.flash {
 }
 
 p.flash-error {
-    color: var(--red-2);
+    color: var(--red-3);
 }
 
 p.flash-info {
@@ -113,75 +151,4 @@ p.flash-info {
 
 p.flash-warning {
     color: var(--orange-1);
-}
-
-
-/* Admin */
-
-.admin-dashboard {
-    display: grid;
-    grid-auto-flow: row;
-    row-gap: 100px;
-}
-
-.admin-menu {
-    display: grid;
-    grid-auto-flow: column;
-    height: 50px;
-    margin-top: 50px;
-    column-gap: 5px;
-}
-
-.admin-menu li {
-    list-style: none;
-    background-color: var(--yellow-1);
-}
-
-.admin-menu a {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    width: 100%;
-    color: black;
-    text-decoration: none;
-    font-size: 20px;
-}
-
-.admin-menu a:hover {
-    background-color: var(--yellow-2);
-}
-
-.admin-menu a:active {
-    color: black;
-    text-decoration: none;
-}
-
-.admin-menu form {
-    height: 100%;
-}
-
-.admin-menu input {
-    padding: 0;
-    margin: 0;
-    width: 100%;
-    height: 100%;
-    border: none;
-    cursor: pointer;
-    font-size: 20px;
-    background-color: var(--yellow-1);
-}
-
-.admin-menu input:hover {
-    background-color: var(--yellow-2);
-}
-
-
-/* Newsletter submission form */
-
-form.newsletter {
-    display: grid;
-    width: 30%;
-    grid-auto-flow: row;
-    row-gap: 0.3em;
 }

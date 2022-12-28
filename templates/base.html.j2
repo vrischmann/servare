@@ -9,30 +9,34 @@
     <link rel="stylesheet" type="text/css" href="/assets/style.css" />
 </head>
 
-<body>
-    <div class="container">
-        <header class="menu">
-            {% if let Some(user_id) = user_id %}
+<body class="container">
+    <header>
+        <div id="logo">Servare</div>
+        <nav>
             <a href="/unread">Unread</a>
             <a href="/feeds">Feeds</a>
-            {% else %}
-            <a href="/login">Login</a>
-            <a href="/signup">Signup</a>
-            {% endif %}
-        </header>
+            <a href="/settings">Settings</a>
+        </nav>
+        {% if let Some(user_id) = user_id %}
+        <form method="POST" action="/logout">
+            <input type="submit" class="logout" value="Logout" />
+        </form>
+        {% else %}
+        <a class="login" href="/login">Login</a>
+        {% endif %}
+    </header>
 
-        <div class="content">
-            {% for msg in flash_messages.iter() -%}
-            {%- let flash_class -%}
-            {%- if msg.level() == actix_web_flash_messages::Level::Error -%}
-            {%- let flash_class = "flash-error" -%}
-            {%- else -%}
-            {%- let flash_class = "flash-info" -%}
-            {%- endif -%}
-            <p class="flash {{ flash_class }}"><i>{{ msg.content() }}</i></p>
-            {%- endfor -%}
-            {%- block content -%}{%- endblock %}
-        </div>
+    <div class="content">
+        {% for msg in flash_messages.iter() -%}
+        {%- let flash_class -%}
+        {%- if msg.level() == actix_web_flash_messages::Level::Error -%}
+        {%- let flash_class = "flash-error" -%}
+        {%- else -%}
+        {%- let flash_class = "flash-info" -%}
+        {%- endif -%}
+        <p class="flash {{ flash_class }}"><i>{{ msg.content() }}</i></p>
+        {%- endfor -%}
+        {%- block content -%}{%- endblock %}
     </div>
 </body>
 
