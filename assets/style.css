@@ -105,7 +105,7 @@ header input.logout {
     cursor: pointer;
 }
 
-header a:hover, form>input:hover {
+header a:hover, header form>input:hover {
     background-color: var(--red-1);
 }
 
