@@ -93,17 +93,6 @@ pub struct TestApp {
 }
 
 impl TestApp {
-    pub async fn get_home_html(&self) -> String {
-        let response = self
-            .http_client
-            .get(&self.address)
-            .send()
-            .await
-            .expect("Failed to execute request.");
-
-        response.text().await.unwrap()
-    }
-
     pub async fn get_html(&self, path: &str) -> String {
         let response = self
             .http_client
@@ -123,24 +112,12 @@ impl TestApp {
             .expect("Failed to execute request.")
     }
 
-    pub async fn get_login(&self) -> reqwest::Response {
-        self.http_client
-            .get(&format!("{}/login", self.address))
-            .send()
-            .await
-            .expect("Failed to execute request.")
-    }
-
-    pub async fn post_login(&self, body: &LoginBody) -> reqwest::Response {
-        self.post(body).await
-    }
-
-    async fn post<T>(&self, body: &T) -> reqwest::Response
+    pub async fn post<T>(&self, path: &str, body: &T) -> reqwest::Response
     where
         T: serde::Serialize,
     {
         self.http_client
-            .post(&format!("{}/login", self.address))
+            .post(&format!("{}{}", self.address, path))
             .form(body)
             .send()
             .await

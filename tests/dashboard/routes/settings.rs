@@ -10,7 +10,7 @@ async fn settings_page_should_work_if_logged_in() {
         email: app.test_user.email.clone(),
         password: app.test_user.password.clone(),
     };
-    let login_response = app.post_login(&login_body).await;
+    let login_response = app.post("/login", &login_body).await;
     assert_is_redirect_to(&login_response, "/");
 
     // Fetch the settings page

@@ -5,7 +5,7 @@ use crate::helpers::{assert_is_redirect_to, spawn_app};
 async fn login_form_should_work() {
     let app = spawn_app().await;
 
-    let response = app.get_login().await.text().await.unwrap();
+    let response = app.get_html("/login").await;
     assert!(
         response.contains("login"),
         "login page doesn't contain the title 'login'"
@@ -21,10 +21,10 @@ async fn login_should_work() {
         password: app.test_user.password.clone(),
     };
 
-    let login_response = app.post_login(&login_body).await;
+    let login_response = app.post("/login", &login_body).await;
     assert_is_redirect_to(&login_response, "/");
 
-    let home_response = app.get_home_html().await;
+    let home_response = app.get_html("/").await;
     assert!(home_response.contains("Successfully logged in"));
 }
 
@@ -37,9 +37,9 @@ async fn login_with_bad_credentials_should_fail() {
         password: "hello".to_string(),
     };
 
-    let login_response = app.post_login(&login_body).await;
+    let login_response = app.post("/login", &login_body).await;
     assert_is_redirect_to(&login_response, "/login");
 
-    let home_response = app.get_home_html().await;
+    let home_response = app.get_html("/").await;
     assert!(home_response.contains("Authentication failed"));
 }
