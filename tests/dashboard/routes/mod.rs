@@ -1,6 +1,7 @@
 use crate::helpers::spawn_app;
 
 mod login;
+mod settings;
 
 #[tokio::test]
 async fn home_should_work() {

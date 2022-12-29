@@ -104,6 +104,17 @@ impl TestApp {
         response.text().await.unwrap()
     }
 
+    pub async fn get_settings_html(&self) -> String {
+        let response = self
+            .http_client
+            .get(&format!("{}/settings", self.address))
+            .send()
+            .await
+            .expect("Failed to execute request.");
+
+        response.text().await.unwrap()
+    }
+
     pub async fn get_login(&self) -> reqwest::Response {
         self.http_client
             .get(&format!("{}/login", self.address))
