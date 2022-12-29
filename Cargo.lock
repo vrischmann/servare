@@ -2658,8 +2658,7 @@ dependencies = [
 [[package]]
 name = "tracing-bunyan-formatter"
 version = "0.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2445962f94a813b2aaea29ceeccb6dce9fd3aa5b1cb45595cde755b00d021ad"
+source = "git+https://github.com/vrischmann/tracing-bunyan-formatter?branch=skip-fields#18e6e2b511ad57e0cae9cb3f51263a5d60c51d94"
 dependencies = [
  "gethostname",
  "log",
