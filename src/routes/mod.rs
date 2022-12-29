@@ -50,10 +50,12 @@ pub async fn handle_status() -> HttpResponse {
     HttpResponse::Ok().finish()
 }
 
+mod feeds;
 mod home;
 mod login;
 mod settings;
 
+pub use feeds::*;
 pub use home::handle_home;
 pub use login::*;
 pub use settings::*;

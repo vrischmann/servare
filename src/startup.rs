@@ -118,6 +118,8 @@ fn create_server(
             .route("/login", web::post().to(handle_login_submit))
             .route("/logout", web::to(handle_logout))
             .route("/settings", web::get().to(handle_settings))
+            .route("/feeds", web::get().to(handle_feeds))
+            .service(web::scope("/feeds").route("/add", web::post().to(handle_feeds_add)))
             .app_data(pool.clone())
     })
     .listen(listener)?
