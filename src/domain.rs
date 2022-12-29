@@ -1,12 +1,10 @@
 use anyhow::anyhow;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
 use validator::validate_email;
 
-#[derive(
-    Clone, Debug, Eq, PartialEq, Ord, PartialOrd, sqlx::Type, serde::Deserialize, serde::Serialize,
-)]
-#[sqlx(transparent)]
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct UserId(pub Uuid);
 
 impl Default for UserId {
@@ -21,8 +19,7 @@ impl fmt::Display for UserId {
     }
 }
 
-#[derive(Clone, Debug, sqlx::Type, serde::Deserialize, serde::Serialize)]
-#[sqlx(transparent)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UserEmail(pub String);
 
 impl UserEmail {
