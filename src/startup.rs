@@ -117,6 +117,7 @@ fn create_server(
             .route("/login", web::get().to(handle_login_form))
             .route("/login", web::post().to(handle_login_submit))
             .route("/logout", web::to(handle_logout))
+            .route("/settings", web::get().to(handle_settings))
             .app_data(pool.clone())
     })
     .listen(listener)?
