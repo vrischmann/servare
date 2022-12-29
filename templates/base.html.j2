@@ -13,9 +13,11 @@
     <header>
         <div id="logo">Servare</div>
         <nav>
+            {% if let Some(user_id) = user_id %}
             <a href="/unread">Unread</a>
             <a href="/feeds">Feeds</a>
             <a href="/settings">Settings</a>
+            {% endif %}
         </nav>
         {% if let Some(user_id) = user_id %}
         <form method="POST" action="/logout">
