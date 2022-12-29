@@ -1,5 +1,6 @@
 use crate::helpers::spawn_app;
 
+mod feeds;
 mod login;
 mod settings;
 
