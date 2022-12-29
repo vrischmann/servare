@@ -60,11 +60,24 @@ impl TEMConfig {
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
+pub struct JaegerConfig {
+    pub host: String,
+    pub port: u16,
+}
+
+impl JaegerConfig {
+    pub fn endpoint(&self) -> String {
+        format!("{}:{}", &self.host, &self.port)
+    }
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct Config {
     pub application: ApplicationConfig,
     pub session: SessionConfig,
     pub database: DatabaseConfig,
     pub tem: TEMConfig,
+    pub jaeger: Option<JaegerConfig>,
 }
 
 pub fn get_configuration() -> Result<Config, config::ConfigError> {

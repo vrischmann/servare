@@ -23,3 +23,7 @@ project_id = "myprojectid"
 auth_key = "myauthkey"
 sender_email = "vincent@rischmann.fr"
 timeout_milliseconds = 10000
+
+[jaeger]
+host = "127.0.0.1"
+port = 6831

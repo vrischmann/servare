@@ -5,9 +5,6 @@ use servare::telemetry;
 use tracing::{error, info};
 
 fn main() {
-    let subscriber = telemetry::get_subscriber("servare".into(), "info".into(), std::io::stdout);
-    telemetry::init_global_default(subscriber);
-
     let config = match get_configuration() {
         Ok(config) => config,
         Err(err) => {
@@ -15,6 +12,15 @@ fn main() {
             std::process::exit(1)
         }
     };
+
+    let subscriber = telemetry::get_subscriber(
+        telemetry::Configuration {
+            jaeger_config: config.jaeger,
+            name: "servare".to_string(),
+        },
+        std::io::stdout,
+    );
+    telemetry::init_global_default(subscriber);
 
     // Build the Tokio runtime
     let runtime = tokio::runtime::Builder::new_current_thread()

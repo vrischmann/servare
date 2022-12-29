@@ -14,18 +14,20 @@ use uuid::Uuid;
 use wiremock::MockServer;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
-    let default_filter_level = "info".into();
     let subscriber_name = "test".into();
 
     std::env::set_var("RUST_LOG", "sqlx=error,info");
 
+    let config = telemetry::Configuration {
+        jaeger_config: None,
+        name: subscriber_name,
+    };
+
     if std::env::var("TEST_LOG").is_ok() {
-        let subscriber =
-            telemetry::get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
+        let subscriber = telemetry::get_subscriber(config, std::io::stdout);
         telemetry::init_global_default(subscriber);
     } else {
-        let subscriber =
-            telemetry::get_subscriber(subscriber_name, default_filter_level, std::io::sink);
+        let subscriber = telemetry::get_subscriber(config, std::io::sink);
         telemetry::init_global_default(subscriber);
     }
 });
