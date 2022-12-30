@@ -59,6 +59,9 @@ tracing-actix-web = "0.6"
 tracing-opentelemetry = "0.18"
 opentelemetry-jaeger = "0.17"
 
+# Syndication stuff
+rss = "2"
+
 # Hacks
 async-trait = "0.1"
 
