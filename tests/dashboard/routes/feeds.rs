@@ -1,7 +1,6 @@
 use crate::helpers::LoginBody;
 use crate::helpers::{assert_is_redirect_to, spawn_app};
 use serde::Serialize;
-use servare::domain::FeedId;
 use url::Url;
 
 #[derive(Serialize)]

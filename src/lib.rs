@@ -3,6 +3,7 @@ use std::fmt;
 pub mod authentication;
 pub mod configuration;
 pub mod domain;
+pub mod feed;
 mod routes;
 mod sessions;
 pub mod startup;
