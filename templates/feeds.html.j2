@@ -6,9 +6,7 @@
 <h1>Feeds</h1>
 
 {% for feed in feeds %}
-{% if let Some(title) = feed.title %}
-<h2>{{ title }}</h2>
-{% endif %}
+<h2>{{ feed.title }}</h2>
 Link: <a href="{{ feed.url }}">{{ feed.url }}</a>
 {% endfor %}
 

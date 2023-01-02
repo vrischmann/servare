@@ -1,15 +1,18 @@
-use crate::domain::{Feed, FeedId, UserId};
-use crate::routes::{e500, get_user_id_or_redirect, see_other};
+use crate::domain::UserId;
+use crate::error_chain_fmt;
+use crate::feed::{fetch_feed, get_all_feeds, insert_feed, Feed, FetchError};
+use crate::routes::{e500, get_user_id_or_redirect2, see_other};
 use crate::sessions::TypedSession;
 use actix_web::error::InternalError;
-use actix_web::http::header::ContentType;
+use actix_web::http;
 use actix_web::web;
 use actix_web::HttpResponse;
-use actix_web_flash_messages::IncomingFlashMessages;
+use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use anyhow::Context;
 use askama::Template;
 use serde::Deserialize;
 use sqlx::PgPool;
+use std::fmt;
 use url::Url;
 
 #[derive(askama::Template)]
@@ -32,12 +35,13 @@ pub async fn handle_feeds(
     session: TypedSession,
     flash_messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, InternalError<anyhow::Error>> {
-    let user_id = get_user_id_or_redirect(&session)?;
+    let user_id = get_user_id_or_redirect2(&session)?;
 
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
     //
 
+    // TODO(vincent): can we handle this better ?
     let feeds = get_all_feeds(&pool, &user_id).await.map_err(e500)?;
 
     let tpl = FeedsTemplate {
@@ -51,7 +55,7 @@ pub async fn handle_feeds(
         .map_err(e500)?;
 
     let response = HttpResponse::Ok()
-        .content_type(ContentType::html())
+        .content_type(http::header::ContentType::html())
         .body(tpl_rendered);
 
     Ok(response)
@@ -60,6 +64,22 @@ pub async fn handle_feeds(
 #[derive(Deserialize)]
 pub struct FeedAddFormData {
     pub url: Url,
+}
+
+#[derive(thiserror::Error)]
+pub enum FeedAddError {
+    #[error("URL is not a valid feed")]
+    URLNotAValidFeed(#[source] FetchError),
+    #[error("URL is inaccessible")]
+    URLInaccessible(#[source] FetchError),
+    #[error("Something went wrong")]
+    Unexpected(#[from] anyhow::Error),
+}
+
+impl fmt::Debug for FeedAddError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        error_chain_fmt(self, f)
+    }
 }
 
 #[tracing::instrument(
@@ -72,77 +92,49 @@ pub struct FeedAddFormData {
 )]
 pub async fn handle_feeds_add(
     pool: web::Data<PgPool>,
+    http_client: web::Data<reqwest::Client>,
     session: TypedSession,
     form_data: web::Form<FeedAddFormData>,
-) -> Result<HttpResponse, InternalError<anyhow::Error>> {
-    let user_id = get_user_id_or_redirect(&session)?;
+) -> Result<HttpResponse, InternalError<FeedAddError>> {
+    let user_id = get_user_id_or_redirect2(&session)?;
 
     let feed_url = form_data.0.url;
+
+    let feed = match fetch_feed(&http_client, &feed_url).await {
+        Ok(feed) => feed,
+        Err(err) => {
+            let err = match err {
+                FetchError::InvalidURL(_) | FetchError::RSS(_) => {
+                    FeedAddError::URLNotAValidFeed(err)
+                }
+                FetchError::Reqwest(_) => FeedAddError::URLInaccessible(err),
+                FetchError::Unexpected(_) => FeedAddError::Unexpected(err.into()),
+            };
+
+            return Err(feeds_page_redirect(err));
+        }
+    };
 
     tracing::Span::current()
         .record("user_id", &tracing::field::display(&user_id))
         .record("url", &tracing::field::display(&feed_url));
 
-    insert_feed(&pool, &user_id, feed_url).await.map_err(e500)?;
+    insert_feed(&pool, &user_id, feed)
+        .await
+        .map_err(Into::<anyhow::Error>::into)
+        .context("unable to save feed")
+        .map_err(Into::<FeedAddError>::into)
+        .map_err(e500)?;
 
     Ok(see_other("/feeds"))
 }
 
-/// Create a new feed in the database for this `user_id` with the URL `url`.
-#[tracing::instrument(name = "Insert feed", skip(pool))]
-async fn insert_feed(pool: &PgPool, user_id: &UserId, url: Url) -> Result<FeedId, anyhow::Error> {
-    let id = FeedId::default();
+fn feeds_page_redirect(err: FeedAddError) -> InternalError<FeedAddError> {
+    FlashMessage::error(err.to_string()).send();
 
-    sqlx::query!(
-        r#"
-        INSERT INTO feeds(id, user_id, url, created_at)
-        VALUES ($1, $2, $3, $4)
-        "#,
-        &id.0,
-        &user_id.0,
-        url.to_string(),
-        time::OffsetDateTime::now_utc(),
-    )
-    .execute(pool)
-    .await
-    .map_err(Into::<anyhow::Error>::into)?;
+    let response = HttpResponse::SeeOther()
+        .insert_header((http::header::LOCATION, "/feeds"))
+        .finish();
 
-    Ok(id)
-}
-
-#[tracing::instrument(name = "Get all feeds", skip(pool))]
-async fn get_all_feeds(pool: &PgPool, user_id: &UserId) -> Result<Vec<Feed>, anyhow::Error> {
-    let records = sqlx::query!(
-        r#"
-        SELECT
-            f.id, f.url, f.title, f.site_link, f.description,
-            f.created_at, f.last_checked_at
-        FROM feeds f
-        INNER JOIN users u ON f.user_id = u.id
-        WHERE u.id = $1
-        "#,
-        &user_id.0,
-    )
-    .fetch_all(pool)
-    .await
-    .map_err(Into::<anyhow::Error>::into)?;
-
-    let mut feeds = Vec::new();
-    for record in records {
-        let url = Url::parse(&record.url)
-            .map_err(Into::<anyhow::Error>::into)
-            .context("invalid feed URL")?;
-
-        feeds.push(Feed {
-            id: FeedId(record.id),
-            url,
-            title: record.title,
-            site_link: record.site_link,
-            description: record.description,
-            created_at: record.created_at,
-            last_checked_at: record.last_checked_at,
-        });
-    }
-
-    Ok(feeds)
+    InternalError::from_response(err, response)
 }
