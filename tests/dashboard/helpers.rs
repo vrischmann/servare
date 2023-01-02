@@ -10,6 +10,10 @@ use servare::startup::Application;
 use servare::startup::{get_connection_pool, get_tem_client};
 use servare::{telemetry, tem};
 use sqlx::PgPool;
+use std::fs;
+use std::io::prelude::*;
+use std::path::PathBuf;
+use url::Url;
 use uuid::Uuid;
 use wiremock::MockServer;
 
@@ -208,4 +212,27 @@ pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
         303
     );
     assert_eq!(response.headers().get("Location").unwrap(), location);
+}
+
+pub fn testdata(path: &str) -> Vec<u8> {
+    let mut contents = Vec::new();
+
+    let cargo_dir = std::env::var("CARGO_MANIFEST_DIR").expect("unable to get the Cargo directory");
+
+    let mut full_path = PathBuf::from(cargo_dir);
+    full_path.push("testdata");
+    full_path.push(path);
+
+    let mut fs = fs::File::open(full_path).expect("unable to open file");
+    fs.read_to_end(&mut contents)
+        .expect("unable to read file to end");
+
+    contents
+}
+
+pub fn parse_url<U>(url: U) -> Url
+where
+    U: AsRef<str>,
+{
+    Url::parse(url.as_ref()).expect("unable to parse URL")
 }
