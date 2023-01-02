@@ -19,6 +19,7 @@ impl Default for FeedId {
 //
 // A not-fetched feed only has the URL
 // A fetched feed has the other stuff as well
+#[derive(Debug)]
 pub struct Feed {
     pub id: FeedId,
     pub url: Url,
