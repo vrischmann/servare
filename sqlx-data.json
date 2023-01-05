@@ -12,6 +12,56 @@
     },
     "query": "DELETE FROM sessions WHERE expires_at <= $1"
   },
+  "0a4c8f336e6d0c4c477d1c321fe301d201a2d44b22d27125d49e972404869c39": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "url",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "site_link",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "description",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "added_at",
+          "ordinal": 5,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n            f.id, f.url, f.title, f.site_link, f.description,\n            f.added_at\n        FROM feeds f\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1\n        "
+  },
   "11e96cfd8c2736f13ce55975ea910dd68640f6f14e38a4b3342d514804e3de27": {
     "describe": {
       "columns": [],
@@ -72,6 +122,21 @@
     },
     "query": "\n                INSERT INTO users(id, email, password_hash)\n                VALUES($1, $2, $3)\n                "
   },
+  "2c00b4d7c1a99a702e8559085d37e097ed112990ef9c54bb357cb0633cd5e85c": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Text",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO feeds(id, user_id, url, added_at)\n        VALUES ($1, $2, $3, $4)\n        "
+  },
   "30f5339441ea87d0d541be812fafc1a43675d6ea51dc27648176928c4fa5b1bb": {
     "describe": {
       "columns": [],
@@ -85,62 +150,6 @@
       }
     },
     "query": "\n            INSERT INTO users(id, email, password_hash)\n            VALUES ($1, $2, $3)\n            "
-  },
-  "3816619f8f00bd3f72c2a3838110f3d42cdf0a336eca162e9a386a79fdd4c37c": {
-    "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": "Uuid"
-        },
-        {
-          "name": "url",
-          "ordinal": 1,
-          "type_info": "Text"
-        },
-        {
-          "name": "title",
-          "ordinal": 2,
-          "type_info": "Text"
-        },
-        {
-          "name": "site_link",
-          "ordinal": 3,
-          "type_info": "Text"
-        },
-        {
-          "name": "description",
-          "ordinal": 4,
-          "type_info": "Text"
-        },
-        {
-          "name": "created_at",
-          "ordinal": 5,
-          "type_info": "Timestamptz"
-        },
-        {
-          "name": "last_checked_at",
-          "ordinal": 6,
-          "type_info": "Timestamptz"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        true,
-        true,
-        true,
-        false,
-        true
-      ],
-      "parameters": {
-        "Left": [
-          "Uuid"
-        ]
-      }
-    },
-    "query": "\n        SELECT\n            f.id, f.url, f.title, f.site_link, f.description,\n            f.created_at, f.last_checked_at\n        FROM feeds f\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1\n        "
   },
   "39cc8ff57ddbe5c8fac558315064b3442319a33b89ce8c7bb7fed2f1e4c2fb8f": {
     "describe": {
@@ -180,21 +189,6 @@
       }
     },
     "query": "\n        UPDATE users\n        SET password_hash = $1\n        WHERE id = $2\n        "
-  },
-  "8924750872d956030fc4572466b26d03f8029e7de77e5847b2ba6d7f003435f9": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Uuid",
-          "Uuid",
-          "Text",
-          "Timestamptz"
-        ]
-      }
-    },
-    "query": "\n        INSERT INTO feeds(id, user_id, url, created_at)\n        VALUES ($1, $2, $3, $4)\n        "
   },
   "c6ec328bca57400093b9c7b81e2ffc23ab0bcc219404141ca26dc89e5f3ff08f": {
     "describe": {
