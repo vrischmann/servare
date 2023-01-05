@@ -25,7 +25,8 @@ where
         .from_env_lossy();
 
     let formatting_layer = BunyanFormattingLayer::new(config.name.clone(), sink)
-        .skip_fields(&["file", "line", "target"]);
+        .skip_fields(&["file", "line", "target"])
+        .expect("unable to build the bunyan formatting layer");
 
     match config.jaeger_config {
         Some(jaeger_config) => {
