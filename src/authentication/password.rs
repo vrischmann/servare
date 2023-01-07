@@ -96,6 +96,43 @@ pub async fn change_password(
     Ok(())
 }
 
+#[tracing::instrument(
+    name = "Create user",
+    skip(pool, password),
+    fields(
+        user_id = tracing::field::Empty,
+    )
+)]
+pub async fn create_user(
+    pool: &sqlx::PgPool,
+    email: &UserEmail,
+    password: Secret<String>,
+) -> Result<UserId, AuthError> {
+    let password_hash_result = spawn_blocking_with_tracing(move || compute_password_hash(password))
+        .await
+        .context("Failed to spawn blocking task")
+        .map_err(Into::<anyhow::Error>::into)?;
+    let password_hash = password_hash_result?;
+
+    let user_id = UserId::default();
+    tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
+
+    sqlx::query!(
+        r#"
+        INSERT INTO users(id, email, password_hash)
+        VALUES ($1, $2, $3)
+        "#,
+        &user_id.0,
+        &email.0,
+        password_hash.expose_secret().to_string(),
+    )
+    .execute(pool)
+    .await
+    .context("Failed to create user")?;
+
+    Ok(user_id)
+}
+
 pub fn compute_password_hash(password: Secret<String>) -> Result<Secret<String>, anyhow::Error> {
     let salt = SaltString::generate(&mut rand::thread_rng());
     let hasher = Argon2::new(
