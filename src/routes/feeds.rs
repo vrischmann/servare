@@ -1,7 +1,7 @@
 use crate::domain::UserId;
 use crate::error_chain_fmt;
 use crate::feed::{fetch_feed, get_all_feeds, insert_feed, Feed, FetchError};
-use crate::routes::{e500, get_user_id_or_redirect2, see_other};
+use crate::routes::{e500, get_user_id_or_redirect, see_other};
 use crate::sessions::TypedSession;
 use actix_web::error::InternalError;
 use actix_web::http;
@@ -35,7 +35,7 @@ pub async fn handle_feeds(
     session: TypedSession,
     flash_messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, InternalError<anyhow::Error>> {
-    let user_id = get_user_id_or_redirect2(&session)?;
+    let user_id = get_user_id_or_redirect(&session)?;
 
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
@@ -96,7 +96,7 @@ pub async fn handle_feeds_add(
     session: TypedSession,
     form_data: web::Form<FeedAddFormData>,
 ) -> Result<HttpResponse, InternalError<FeedAddError>> {
-    let user_id = get_user_id_or_redirect2(&session)?;
+    let user_id = get_user_id_or_redirect(&session)?;
 
     let feed_url = form_data.0.url;
 

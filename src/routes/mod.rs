@@ -28,26 +28,7 @@ pub fn see_other(location: &str) -> HttpResponse {
 }
 
 #[tracing::instrument(name = "Get user id or redirect", skip(session))]
-pub fn get_user_id_or_redirect(
-    session: &TypedSession,
-) -> Result<UserId, InternalError<anyhow::Error>> {
-    let user_id = session
-        .get_user_id()
-        .map_err(Into::<anyhow::Error>::into)
-        .map_err(e500)?;
-
-    match user_id {
-        Some(user_id) => Ok(user_id),
-        None => {
-            let response = see_other("/login");
-            let err = anyhow!("The user has not logged in");
-
-            Err(InternalError::from_response(err, response))
-        }
-    }
-}
-
-pub fn get_user_id_or_redirect2<E>(session: &TypedSession) -> Result<UserId, InternalError<E>>
+pub fn get_user_id_or_redirect<E>(session: &TypedSession) -> Result<UserId, InternalError<E>>
 where
     E: From<anyhow::Error> + fmt::Display + fmt::Debug + 'static,
 {
