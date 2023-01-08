@@ -79,14 +79,17 @@ pub enum FoundFeed {
 /// This function will return an error if .
 #[tracing::instrument(name = "Find feed", skip(url, data))]
 pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
-    // Try to parse as a RSS feed
+    // Try to parse as a feed
     if let Ok(feed) = feed_rs::parser::parse(data) {
+        event!(Level::INFO, "found a raw feed");
         return Ok(FoundFeed::Raw(feed));
     }
 
-    // If not an RSS feed, try to parse as a HTML document to find a link
+    // If not a valid feed, try to parse as a HTML document to find a link
     match select::document::Document::from_read(data) {
         Ok(document) => {
+            event!(Level::INFO, "found a HTML document, need parsing");
+
             for link in document.find(select::predicate::Name("link")) {
                 let link_href = link.attr("href").unwrap_or_default();
                 // The href might be absolute
@@ -108,6 +111,8 @@ pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
     }
 
     // Otherwise there is no feed
+
+    event!(Level::INFO, url = %url, "found no feed");
 
     Err(FindError::NoFeed)
 }
