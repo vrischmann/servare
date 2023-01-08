@@ -1,6 +1,7 @@
 use anyhow::Context;
 use argon2::password_hash::{PasswordHasher, SaltString};
 use argon2::Argon2;
+use bytes::Bytes;
 use fake::faker::internet::en::{Password as FakerPassword, SafeEmail as FakerSafeEmail};
 use fake::Fake;
 use once_cell::sync::Lazy;
@@ -235,4 +236,13 @@ where
     U: AsRef<str>,
 {
     Url::parse(url.as_ref()).expect("unable to parse URL")
+}
+
+pub async fn fetch(url: &Url) -> Bytes {
+    let client = reqwest::Client::new();
+
+    let response = client.get(url.to_string()).send().await.unwrap();
+    let response_body = response.bytes().await.unwrap();
+
+    response_body
 }

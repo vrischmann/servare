@@ -1,5 +1,6 @@
 use crate::domain::UserId;
 use anyhow::Context;
+use feed_rs::model::Feed as RawFeed;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use tracing::{event, Level};
@@ -25,14 +26,29 @@ pub struct Feed {
     pub added_at: time::OffsetDateTime,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum ParseError {
+    #[error(transparent)]
+    Unexpected(#[from] anyhow::Error),
+}
+
 impl Feed {
-    pub fn from_rss(channel: rss::Channel, url: &Url) -> Self {
+    pub fn parse(url: &Url, data: &[u8]) -> Result<Self, ParseError> {
+        let raw_feed = feed_rs::parser::parse(data).map_err(Into::<anyhow::Error>::into)?;
+
+        Ok(Self::from_raw_feed(url, raw_feed))
+    }
+
+    pub fn from_raw_feed(url: &Url, feed: RawFeed) -> Self {
+        // TODO(vincent): this is broken
+        let site_link = &feed.links[0].href;
+
         Feed {
             id: FeedId::default(),
             url: url.clone(),
-            title: channel.title,
-            site_link: channel.link,
-            description: channel.description,
+            title: feed.title.map(|v| v.content).unwrap_or_default(),
+            site_link: site_link.clone(),
+            description: feed.description.map(|v| v.content).unwrap_or_default(),
             added_at: time::OffsetDateTime::now_utc(),
         }
     }
@@ -48,11 +64,11 @@ pub enum FindError {
     Unexpected(#[from] anyhow::Error),
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum FoundFeed {
-    RssUrl(Url),
-    AtomUrl(Url),
-    Rss(rss::Channel),
+    Url(Url),
+    Raw(RawFeed),
 }
 
 /// Find the feed at [`url`].
@@ -64,8 +80,8 @@ pub enum FoundFeed {
 #[tracing::instrument(name = "Find feed", skip(url, data))]
 pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
     // Try to parse as a RSS feed
-    if let Ok(feed) = rss::Channel::read_from(data) {
-        return Ok(FoundFeed::Rss(feed));
+    if let Ok(feed) = feed_rs::parser::parse(data) {
+        return Ok(FoundFeed::Raw(feed));
     }
 
     // If not an RSS feed, try to parse as a HTML document to find a link
@@ -81,14 +97,8 @@ pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
                 }?;
 
                 let link_type = link.attr("type").unwrap_or_default();
-                match link_type {
-                    "application/rss+xml" => {
-                        return Ok(FoundFeed::RssUrl(feed_url));
-                    }
-                    "application/atom+xml" => {
-                        return Ok(FoundFeed::AtomUrl(feed_url));
-                    }
-                    _ => {}
+                if link_type == "application/rss+xml" || link_type == "application/atom+xml" {
+                    return Ok(FoundFeed::Url(feed_url));
                 }
             }
         }
