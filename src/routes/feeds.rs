@@ -131,6 +131,8 @@ pub async fn handle_feeds_add(
         .map_err(feeds_page_redirect)?;
 
     // 1) Find the feed
+    //
+    // Note we spawn a blocking task to avoid taking too much time parsing the data
 
     // TODO(vincent): how can we avoid a clone here ?
     let find_feed_url = original_url.clone();
@@ -149,19 +151,32 @@ pub async fn handle_feeds_add(
     // 2) Process the result
 
     let feed = match found_feed {
-        FoundFeed::Url(url) => {
-            event!(Level::INFO, %url, "original URL was a HTML document");
+        FoundFeed::RssUrl(url) => {
+            event!(Level::INFO,
+                url = %url,
+                "original URL was a HTML document containing a RSS feed URL",
+            );
 
             let response_bytes = fetch_bytes(&http_client, &url)
                 .await
                 .map_err(FeedAddError::URLInaccessible)
                 .map_err(feeds_page_redirect)?;
 
+            // TODO(vincent): handle feed_type
             let channel = rss::Channel::read_from(&response_bytes[..])
                 .map_err(FeedAddError::URLNotAValidRSSFeed)
                 .map_err(feeds_page_redirect)?;
 
             Feed::from_rss(channel, &url)
+        }
+        FoundFeed::AtomUrl(url) => {
+            event!(Level::INFO,
+                url = %url,
+                "original URL was a HTML document containing a Atom feed URL",
+            );
+
+            event!(Level::ERROR, "not implemented !");
+            unimplemented!()
         }
         FoundFeed::Rss(channel) => {
             event!(Level::INFO, "original URL was a RSS feed");

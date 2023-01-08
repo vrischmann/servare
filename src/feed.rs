@@ -15,10 +15,6 @@ impl Default for FeedId {
     }
 }
 
-// TODO(vincent): should have specific types to differentiate between a not-fetched feed and a fetched feed.
-//
-// A not-fetched feed only has the URL
-// A fetched feed has the other stuff as well
 #[derive(Debug)]
 pub struct Feed {
     pub id: FeedId,
@@ -54,7 +50,8 @@ pub enum FindError {
 
 #[derive(Debug)]
 pub enum FoundFeed {
-    Url(Url),
+    RssUrl(Url),
+    AtomUrl(Url),
     Rss(rss::Channel),
 }
 
@@ -75,22 +72,24 @@ pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
     match select::document::Document::from_read(data) {
         Ok(document) => {
             for link in document.find(select::predicate::Name("link")) {
-                let link_type = link.attr("type").unwrap_or_default();
-                // We're looking for a link of type application/rss+xml.
-                if link_type != "application/rss+xml" {
-                    continue;
-                }
-
                 let link_href = link.attr("href").unwrap_or_default();
-
                 // The href might be absolute
-                let feed_url = if link_href.starts_with('/') {
+                let feed_url = if !link_href.starts_with("http") {
                     url.join(link_href)
                 } else {
                     Url::parse(link_href)
                 }?;
 
-                return Ok(FoundFeed::Url(feed_url));
+                let link_type = link.attr("type").unwrap_or_default();
+                match link_type {
+                    "application/rss+xml" => {
+                        return Ok(FoundFeed::RssUrl(feed_url));
+                    }
+                    "application/atom+xml" => {
+                        return Ok(FoundFeed::AtomUrl(feed_url));
+                    }
+                    _ => {}
+                }
             }
         }
         Err(err) => {
