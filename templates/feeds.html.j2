@@ -5,9 +5,22 @@
 
 <h1>Feeds</h1>
 
-{% for feed in feeds %}
-<h2>{{ feed.title }}</h2>
-Link: <a href="{{ feed.url }}">{{ feed.url }}</a>
-{% endfor %}
+<div>
+	<h2>Add a feed</h2>
+
+	<form action="/feeds/add" method="POST">
+		<label for="email">URL</label>
+		<input type="text" name="url" placeholder="Feed URL">
+
+		<button type="submit">Find a feed</button>
+	</form>
+</div>
+
+<div>
+	{% for feed in feeds %}
+	<h2>{{ feed.title }}</h2>
+	Link: <a href="{{ feed.url }}">{{ feed.url }}</a>
+	{% endfor %}
+</div>
 
 {%- endblock %}
