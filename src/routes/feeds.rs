@@ -9,7 +9,7 @@ use actix_web::http;
 use actix_web::web;
 use actix_web::HttpResponse;
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use askama::Template;
 use bytes::Bytes;
 use serde::Deserialize;
@@ -189,6 +189,26 @@ pub async fn handle_feeds_add(
         .map_err(feeds_page_redirect)?;
 
     Ok(see_other("/feeds"))
+}
+
+pub async fn handle_feeds_add_form() -> Result<HttpResponse, InternalError<anyhow::Error>> {
+    let response = HttpResponse::SeeOther()
+        .insert_header((http::header::LOCATION, "/feeds"))
+        .finish();
+
+    let err = anyhow!("not implemented");
+
+    Err(InternalError::from_response(err, response))
+}
+
+pub async fn handle_feeds_refresh() -> Result<HttpResponse, InternalError<anyhow::Error>> {
+    let response = HttpResponse::SeeOther()
+        .insert_header((http::header::LOCATION, "/feeds"))
+        .finish();
+
+    let err = anyhow!("not implemented");
+
+    Err(InternalError::from_response(err, response))
 }
 
 fn feeds_page_redirect(err: FeedAddError) -> InternalError<FeedAddError> {

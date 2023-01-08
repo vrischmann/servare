@@ -1,0 +1,17 @@
+{% extends "base.html.j2" %}
+
+{% block title %}Feeds{% endblock %}
+{% block content -%}
+
+<h1>Feeds</h1>
+
+<h2>Add a feed</h2>
+
+<form class="feed-add" action="/feeds/add" method="POST">
+	<label for="email">URL</label>
+	<input type="text" name="url" placeholder="Feed URL">
+
+	<button type="submit">Find a feed</button>
+</form>
+
+{%- endblock %}

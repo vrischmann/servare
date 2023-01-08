@@ -128,7 +128,12 @@ fn create_server(
             .route("/logout", web::to(handle_logout))
             .route("/settings", web::get().to(handle_settings))
             .route("/feeds", web::get().to(handle_feeds))
-            .service(web::scope("/feeds").route("/add", web::post().to(handle_feeds_add)))
+            .service(
+                web::scope("/feeds")
+                    .route("/add", web::post().to(handle_feeds_add))
+                    .route("/add", web::get().to(handle_feeds_add_form))
+                    .route("/refresh", web::post().to(handle_feeds_refresh)),
+            )
             .app_data(pool.clone())
             .app_data(http_client.clone())
     })
