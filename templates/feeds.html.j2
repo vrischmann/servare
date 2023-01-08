@@ -5,18 +5,14 @@
 
 <h1>Feeds</h1>
 
-<div>
-	<h2>Add a feed</h2>
+<nav class="feeds">
+	<a href="/feeds/add">Add a feed</a>
+	<form action="/feeds/refresh">
+        <input type="submit" class="refresh" value="Refresh in the background" />
+    </form>
+</nav>
 
-	<form action="/feeds/add" method="POST">
-		<label for="email">URL</label>
-		<input type="text" name="url" placeholder="Feed URL">
-
-		<button type="submit">Find a feed</button>
-	</form>
-</div>
-
-<div>
+<div class="feed-listing">
 	{% for feed in feeds %}
 	<h2>{{ feed.title }}</h2>
 	Link: <a href="{{ feed.url }}">{{ feed.url }}</a>
