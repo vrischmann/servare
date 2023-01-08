@@ -1,6 +1,6 @@
 use crate::domain::UserId;
 use crate::error_chain_fmt;
-use crate::feed::{find_feed, get_all_feeds, insert_feed, Feed, FindError, FoundFeed};
+use crate::feed::{find_feed, get_all_feeds, insert_feed, Feed, FindError, FoundFeed, ParseError};
 use crate::routes::{e500, get_user_id_or_redirect, see_other};
 use crate::sessions::TypedSession;
 use crate::telemetry::spawn_blocking_with_tracing;
@@ -74,7 +74,7 @@ pub enum FeedAddError {
     #[error("Did not find a valid feed")]
     NoFeed(#[source] FindError),
     #[error("URL is not a valid RSS feed")]
-    URLNotAValidRSSFeed(#[from] rss::Error),
+    URLNotAValidRSSFeed(#[from] ParseError),
     #[error("URL is inaccessible")]
     URLInaccessible(#[source] reqwest::Error),
     #[error("Something went wrong")]
@@ -151,7 +151,7 @@ pub async fn handle_feeds_add(
     // 2) Process the result
 
     let feed = match found_feed {
-        FoundFeed::RssUrl(url) => {
+        FoundFeed::Url(url) => {
             event!(Level::INFO,
                 url = %url,
                 "original URL was a HTML document containing a RSS feed URL",
@@ -162,26 +162,14 @@ pub async fn handle_feeds_add(
                 .map_err(FeedAddError::URLInaccessible)
                 .map_err(feeds_page_redirect)?;
 
-            // TODO(vincent): handle feed_type
-            let channel = rss::Channel::read_from(&response_bytes[..])
+            Feed::parse(&url, &response_bytes[..])
                 .map_err(FeedAddError::URLNotAValidRSSFeed)
-                .map_err(feeds_page_redirect)?;
-
-            Feed::from_rss(channel, &url)
+                .map_err(feeds_page_redirect)?
         }
-        FoundFeed::AtomUrl(url) => {
-            event!(Level::INFO,
-                url = %url,
-                "original URL was a HTML document containing a Atom feed URL",
-            );
-
-            event!(Level::ERROR, "not implemented !");
-            unimplemented!()
-        }
-        FoundFeed::Rss(channel) => {
+        FoundFeed::Raw(raw_feed) => {
             event!(Level::INFO, "original URL was a RSS feed");
 
-            Feed::from_rss(channel, &original_url)
+            Feed::from_raw_feed(&original_url, raw_feed)
         }
     };
 
