@@ -48,6 +48,9 @@ rand = { version = "0.8", features = ["std_rng"] }
 clap = { version = "4", features = ["cargo", "std"] }
 read_input = "0.8"
 
+# Content parsing stuff
+select = "0.6"
+rss = "2"
 
 # Serialization stuff
 serde = { version = "1", features = ["derive"] }
@@ -62,9 +65,6 @@ tracing-log = "0.1"
 tracing-actix-web = "0.6"
 tracing-opentelemetry = "0.18"
 opentelemetry-jaeger = "0.17"
-
-# Syndication stuff
-rss = "2"
 
 # Hacks
 async-trait = "0.1"
