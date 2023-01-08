@@ -6,6 +6,7 @@ use argon2::password_hash::SaltString;
 use argon2::{Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use rand;
 use secrecy::{ExposeSecret, Secret};
+use sqlx::PgPool;
 
 /// This error is returned when there is a problem authenticating.
 #[derive(Debug, thiserror::Error)]
@@ -27,10 +28,7 @@ pub struct Credentials {
 /// If the credentials are validated then this function returns the [`crate::domain::UserId`].
 /// Otherwise it returns an [`AuthError`].
 #[tracing::instrument(name = "Authenticate", skip(pool, credentials))]
-pub async fn authenticate(
-    pool: &sqlx::PgPool,
-    credentials: Credentials,
-) -> Result<UserId, AuthError> {
+pub async fn authenticate(pool: &PgPool, credentials: Credentials) -> Result<UserId, AuthError> {
     let mut user_id = None;
     let mut expected_password_hash = Secret::new(
         "$argon2id$v=19$m=15000,t=2,p=1\
@@ -68,7 +66,7 @@ pub async fn authenticate(
 
 #[tracing::instrument(name = "Change password", skip(pool, password))]
 pub async fn change_password(
-    pool: &sqlx::PgPool,
+    pool: &PgPool,
     user_id: UserId,
     password: Secret<String>,
 ) -> Result<(), anyhow::Error> {
@@ -104,7 +102,7 @@ pub async fn change_password(
     )
 )]
 pub async fn create_user(
-    pool: &sqlx::PgPool,
+    pool: &PgPool,
     email: &UserEmail,
     password: Secret<String>,
 ) -> Result<UserId, AuthError> {
@@ -174,7 +172,7 @@ fn verify_password_hash(
 /// Returns None otherwise.
 #[tracing::instrument(name = "Get stored credentials", skip(pool))]
 async fn get_stored_credentials(
-    pool: &sqlx::PgPool,
+    pool: &PgPool,
     email: &UserEmail,
 ) -> Result<Option<(UserId, Secret<String>)>, anyhow::Error> {
     let row = sqlx::query!(
@@ -211,7 +209,7 @@ mod tests {
     use fake::faker::internet::en::{Password as FakerPassword, SafeEmail as FakerSafeEmail};
     use fake::Fake;
 
-    async fn get_pool() -> sqlx::PgPool {
+    async fn get_pool() -> PgPool {
         let config = get_configuration().unwrap();
         get_connection_pool(&config.database).await.unwrap()
     }

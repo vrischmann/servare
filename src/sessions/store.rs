@@ -2,12 +2,13 @@ use actix_session::storage::{LoadError, SaveError, UpdateError};
 use actix_session::storage::{SessionKey, SessionStore};
 use actix_web::cookie::time::Duration;
 use anyhow::anyhow;
+use sqlx::PgPool;
 use std::collections::HashMap;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct PgSessionStore {
-    pool: sqlx::PgPool,
+    pool: PgPool,
 }
 
 #[derive(Debug)]
@@ -29,7 +30,7 @@ impl Default for CleanupConfig {
 }
 
 impl PgSessionStore {
-    pub fn new(pool: sqlx::PgPool, cleanup_config: CleanupConfig) -> Self {
+    pub fn new(pool: PgPool, cleanup_config: CleanupConfig) -> Self {
         // Launch a background cleanup task if necessary
         if cleanup_config.enabled {
             let cleanup_pool = pool.clone();
@@ -42,7 +43,7 @@ impl PgSessionStore {
     }
 }
 
-async fn clean_sessions(pool: sqlx::PgPool, clean_interval: time::Duration) {
+async fn clean_sessions(pool: PgPool, clean_interval: time::Duration) {
     let mut interval = tokio::time::interval(clean_interval.unsigned_abs());
     loop {
         let _ = interval.tick().await;
@@ -225,6 +226,7 @@ mod tests {
     use super::{uuid_to_session_key, CleanupConfig, PgSessionStore};
     use actix_session::storage::SessionStore;
     use actix_web::cookie::time::Duration;
+    use sqlx::PgPool;
     use std::collections::HashMap;
     use uuid::Uuid;
 
@@ -233,7 +235,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn loading_a_missing_session_returns_none(pool: sqlx::PgPool) {
+    async fn loading_a_missing_session_returns_none(pool: PgPool) {
         let store = PgSessionStore::new(pool, CleanupConfig::default());
 
         let session_key = uuid_to_session_key(Uuid::new_v4()).unwrap();
@@ -246,7 +248,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn loading_an_existing_session_returns_its_state(pool: sqlx::PgPool) {
+    async fn loading_an_existing_session_returns_its_state(pool: PgPool) {
         let store = PgSessionStore::new(pool, CleanupConfig::default());
         let state = make_state();
 
@@ -266,9 +268,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn updating_then_loading_an_existing_session_returns_its_updated_state(
-        pool: sqlx::PgPool,
-    ) {
+    async fn updating_then_loading_an_existing_session_returns_its_updated_state(pool: PgPool) {
         let store = PgSessionStore::new(pool, CleanupConfig::default());
         let mut state = make_state();
 
@@ -293,7 +293,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn loading_a_session_saved_with_a_negative_ttl_returns_none(pool: sqlx::PgPool) {
+    async fn loading_a_session_saved_with_a_negative_ttl_returns_none(pool: PgPool) {
         let store = PgSessionStore::new(pool, CleanupConfig::default());
         let state = make_state();
 
@@ -311,7 +311,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn loading_a_deleted_session_returns_none(pool: sqlx::PgPool) {
+    async fn loading_a_deleted_session_returns_none(pool: PgPool) {
         let store = PgSessionStore::new(pool, CleanupConfig::default());
         let state = make_state();
 
@@ -334,7 +334,7 @@ mod tests {
     }
 
     #[sqlx::test]
-    async fn loading_an_expired_session_returns_none(pool: sqlx::PgPool) {
+    async fn loading_an_expired_session_returns_none(pool: PgPool) {
         let store =
             PgSessionStore::new(pool, CleanupConfig::new(true, Duration::milliseconds(100)));
         let state = make_state();
