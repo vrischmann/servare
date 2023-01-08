@@ -95,6 +95,15 @@ fn create_server(
 ) -> Result<Server, anyhow::Error> {
     let pool = web::Data::new(pool);
 
+    let http_client = {
+        let tmp = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .cookie_store(true)
+            .build()?;
+
+        web::Data::new(tmp)
+    };
+
     let session_ttl = time::Duration::try_from(session_ttl)
         .expect("StdDuration should always be convertible to time::Duration");
 
@@ -121,6 +130,7 @@ fn create_server(
             .route("/feeds", web::get().to(handle_feeds))
             .service(web::scope("/feeds").route("/add", web::post().to(handle_feeds_add)))
             .app_data(pool.clone())
+            .app_data(http_client.clone())
     })
     .listen(listener)?
     .run();
