@@ -97,7 +97,7 @@ fn create_server(
 
     let http_client = {
         let tmp = reqwest::Client::builder()
-            .redirect(reqwest::redirect::Policy::none())
+            .redirect(reqwest::redirect::Policy::limited(10))
             .cookie_store(true)
             .build()?;
 

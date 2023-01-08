@@ -29,45 +29,78 @@ pub struct Feed {
     pub added_at: time::OffsetDateTime,
 }
 
+impl Feed {
+    pub fn from_rss(channel: rss::Channel, url: &Url) -> Self {
+        Feed {
+            id: FeedId::default(),
+            url: url.clone(),
+            title: channel.title,
+            site_link: channel.link,
+            description: channel.description,
+            added_at: time::OffsetDateTime::now_utc(),
+        }
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
-pub enum FetchError {
-    #[error("Invalid URL")]
-    InvalidURL(#[source] url::ParseError),
-    #[error("RSS error")]
-    RSS(#[source] rss::Error),
-    #[error("HTTP request error")]
-    Reqwest(#[source] reqwest::Error),
+pub enum FindError {
+    #[error("No feed")]
+    NoFeed,
+    #[error(transparent)]
+    URLInvalid(#[from] url::ParseError),
     #[error(transparent)]
     Unexpected(#[from] anyhow::Error),
 }
 
-#[tracing::instrument(name = "Fetch feed", skip(client))]
-pub async fn fetch_feed(client: &reqwest::Client, url: &Url) -> Result<Feed, FetchError> {
-    // Fetch the feed data
-    let response_result = client.get(url.to_string()).send().await;
+#[derive(Debug)]
+pub enum FoundFeed {
+    Url(Url),
+    Rss(rss::Channel),
+}
 
-    let response = response_result.map_err(FetchError::Reqwest)?;
-    let response_bytes = response.bytes().await.map_err(FetchError::Reqwest)?;
+/// Find the feed at [`url`].
+/// TODO(vincent): return all detected feeds
+///
+/// # Errors
+///
+/// This function will return an error if .
+#[tracing::instrument(name = "Find feed", skip(url, data))]
+pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
+    // Try to parse as a RSS feed
+    if let Ok(feed) = rss::Channel::read_from(data) {
+        return Ok(FoundFeed::Rss(feed));
+    }
 
-    // Parse the feed
-    let rss_channel = rss::Channel::read_from(&response_bytes[..]).map_err(FetchError::RSS)?;
+    // If not an RSS feed, try to parse as a HTML document to find a link
+    match select::document::Document::from_read(data) {
+        Ok(document) => {
+            for link in document.find(select::predicate::Name("link")) {
+                let link_type = link.attr("type").unwrap_or_default();
+                // We're looking for a link of type application/rss+xml.
+                if link_type != "application/rss+xml" {
+                    continue;
+                }
 
-    let feed = Feed {
-        id: FeedId::default(),
-        url: url.clone(),
-        title: rss_channel.title,
-        site_link: rss_channel.link,
-        description: rss_channel.description,
-        added_at: time::OffsetDateTime::now_utc(),
-    };
+                let link_href = link.attr("href").unwrap_or_default();
 
-    event!(Level::INFO,
-        title = %feed.title,
-        site_link = %feed.site_link,
-        "Fetched feed",
-    );
+                // The href might be absolute
+                let feed_url = if link_href.starts_with('/') {
+                    url.join(link_href)
+                } else {
+                    Url::parse(link_href)
+                }?;
 
-    Ok(feed)
+                return Ok(FoundFeed::Url(feed_url));
+            }
+        }
+        Err(err) => {
+            event!(Level::ERROR, %err, "failed to parse HTML document");
+        }
+    }
+
+    // Otherwise there is no feed
+
+    Err(FindError::NoFeed)
 }
 
 /// Create a new feed in the database for this `user_id` with the URL `url`.
@@ -83,12 +116,15 @@ pub async fn insert_feed(pool: &PgPool, user_id: &UserId, feed: Feed) -> Result<
 
     sqlx::query!(
         r#"
-        INSERT INTO feeds(id, user_id, url, added_at)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO feeds(id, user_id, url, title, site_link, description, added_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         "#,
         &feed.id.0,
         &user_id.0,
         feed.url.to_string(),
+        &feed.title,
+        &feed.site_link,
+        &feed.description,
         time::OffsetDateTime::now_utc(),
     )
     .execute(pool)
