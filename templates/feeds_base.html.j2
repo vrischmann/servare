@@ -1,0 +1,16 @@
+{% extends "base.html.j2" %}
+
+{% block content -%}
+
+<h1>Feeds</h1>
+
+<nav class="feeds">
+       <a href="/feeds/add">Add a feed</a>
+       <form action="/feeds/refresh">
+        <input type="submit" class="refresh" value="Refresh in the background" />
+    </form>
+</nav>
+
+{%- block feeds_content -%}{%- endblock -%}
+
+{%- endblock %}
