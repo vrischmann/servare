@@ -48,6 +48,10 @@ form>input {
     font-size: 15px;
 }
 
+button {
+    transition: all .14s ease-out;
+}
+
 form>button[type="submit"] {
     height: 3em;
     font-size: 15px;
@@ -155,6 +159,14 @@ form.login {
 
 button.login-submit {
     margin-top: 1em;
+    border: 1px solid black;
+    border-radius: 0.25em;
+    background-color: var(--yellow-2);
+}
+
+button.login-submit:hover {
+    transform: translate(-0.25rem, -0.25rem);
+    box-shadow: 5px 5px 0 black;
 }
 
 /* Flash messages */
@@ -174,7 +186,7 @@ p.flash-error {
 }
 
 p.flash-info {
-    color: var(--yellow-1);
+    color: var(--yellow-2);
 }
 
 p.flash-warning {
