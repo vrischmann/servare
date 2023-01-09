@@ -99,14 +99,19 @@ header a {
     text-decoration: none;
 }
 
+header a.active {
+    background-color: var(--red-2);
+}
+
+header a:active,
+header a:visited {
+    color: white;
+}
+
 nav.main {
     grid-area: nav;
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
-}
-
-header a:visited {
-    color: white;
 }
 
 header a.login {

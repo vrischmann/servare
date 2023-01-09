@@ -1,6 +1,7 @@
 use crate::authentication::{authenticate, AuthError, Credentials};
 use crate::domain::{UserEmail, UserId};
 use crate::error_chain_fmt;
+use crate::routes::LOGIN_PAGE;
 use crate::routes::{e500, see_other};
 use crate::sessions::TypedSession;
 use actix_web::error::InternalError;
@@ -18,6 +19,7 @@ use tracing::{event, Level};
 #[derive(askama::Template)]
 #[template(path = "login.html.j2")]
 struct LoginTemplate {
+    pub page: &'static str,
     pub user_id: Option<UserId>,
     pub flash_messages: IncomingFlashMessages,
 }
@@ -44,6 +46,7 @@ pub async fn handle_login_form(
     //
 
     let tpl = LoginTemplate {
+        page: LOGIN_PAGE,
         user_id,
         flash_messages,
     };

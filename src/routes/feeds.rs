@@ -1,6 +1,7 @@
 use crate::domain::UserId;
 use crate::error_chain_fmt;
 use crate::feed::{find_feed, get_all_feeds, insert_feed, Feed, FindError, FoundFeed, ParseError};
+use crate::routes::FEEDS_PAGE;
 use crate::routes::{e500, get_user_id_or_redirect, see_other};
 use crate::sessions::TypedSession;
 use crate::telemetry::spawn_blocking_with_tracing;
@@ -21,6 +22,7 @@ use url::Url;
 #[derive(askama::Template)]
 #[template(path = "feeds.html.j2")]
 struct FeedsTemplate {
+    pub page: &'static str,
     pub user_id: Option<UserId>,
     pub flash_messages: IncomingFlashMessages,
     pub feeds: Vec<FeedForTemplate>,
@@ -63,6 +65,7 @@ pub async fn handle_feeds(
     //
 
     let tpl = FeedsTemplate {
+        page: FEEDS_PAGE,
         user_id: Some(user_id),
         flash_messages,
         feeds,
@@ -209,6 +212,7 @@ pub async fn handle_feeds_add(
 #[derive(askama::Template)]
 #[template(path = "feeds_add.html.j2")]
 struct FeedsAddTemplate {
+    pub page: &'static str,
     pub user_id: Option<UserId>,
     pub flash_messages: IncomingFlashMessages,
 }
@@ -229,6 +233,7 @@ pub async fn handle_feeds_add_form(
     tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
     let tpl = FeedsAddTemplate {
+        page: FEEDS_PAGE,
         user_id: Some(user_id),
         flash_messages,
     };

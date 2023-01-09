@@ -1,4 +1,5 @@
 use crate::domain::UserId;
+use crate::routes::SETTINGS_PAGE;
 use crate::routes::{e500, get_user_id_or_redirect};
 use crate::sessions::TypedSession;
 use actix_web::error::InternalError;
@@ -10,6 +11,7 @@ use askama::Template;
 #[derive(askama::Template)]
 #[template(path = "settings.html.j2")]
 struct SettingsTemplate {
+    pub page: &'static str,
     pub user_id: Option<UserId>,
     pub flash_messages: IncomingFlashMessages,
 }
@@ -32,6 +34,7 @@ pub async fn handle_settings(
     //
 
     let tpl = SettingsTemplate {
+        page: SETTINGS_PAGE,
         user_id: Some(user_id),
         flash_messages,
     };

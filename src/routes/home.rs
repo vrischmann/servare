@@ -1,5 +1,6 @@
 use crate::domain::UserId;
 use crate::routes::e500;
+use crate::routes::HOME_PAGE;
 use crate::sessions::TypedSession;
 use actix_web::error::InternalError;
 use actix_web::http::header::ContentType;
@@ -10,6 +11,7 @@ use askama::Template;
 #[derive(askama::Template)]
 #[template(path = "home.html.j2")]
 struct HomeTemplate {
+    pub page: &'static str,
     pub user_id: Option<UserId>,
     pub flash_messages: IncomingFlashMessages,
 }
@@ -36,6 +38,7 @@ pub async fn handle_home(
     //
 
     let tpl = HomeTemplate {
+        page: HOME_PAGE,
         user_id,
         flash_messages,
     };

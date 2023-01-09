@@ -53,6 +53,11 @@ pub async fn handle_status() -> HttpResponse {
     HttpResponse::Ok().finish()
 }
 
+pub(crate) const FEEDS_PAGE: &str = "feeds";
+pub(crate) const HOME_PAGE: &str = "home";
+pub(crate) const LOGIN_PAGE: &str = "login";
+pub(crate) const SETTINGS_PAGE: &str = "settings";
+
 mod feeds;
 mod home;
 mod login;

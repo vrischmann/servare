@@ -15,9 +15,9 @@
         <div id="logo">Servare</div>
         <nav class="main">
             {% if let Some(user_id) = user_id %}
-            <a href="/unread">Unread</a>
-            <a href="/feeds">Feeds</a>
-            <a href="/settings">Settings</a>
+            <a {% if page == "unreader" %}class="active"{% endif %} href="/unread">Unread</a>
+            <a {% if page == "feeds" %}class="active"{% endif %} href="/feeds">Feeds</a>
+            <a {% if page == "settings" %}class="active"{% endif %} href="/settings">Settings</a>
             {% endif %}
         </nav>
         {% if let Some(user_id) = user_id %}
