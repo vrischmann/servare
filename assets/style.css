@@ -239,12 +239,7 @@ form.feed-add {
 
 .feed-card {
     display: grid;
-    /*     grid-template-areas:
-        "image"
-        "title"
-        "site_link"
-        "description"; */
-    grid-template-rows: fit-content(4em) auto 1fr;
+    grid-template-rows: auto auto 1fr;
     border: black 1px solid;
     border-radius: 0.25em;
     background-color: var(--stone-2);
