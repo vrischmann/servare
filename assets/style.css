@@ -49,8 +49,11 @@ form>label {
 
 .content {
     margin-top: 3em;
-    padding-top: 1em;
     /* border-top: 1px black solid;*/
+}
+
+.mt3 {
+    margin-top: 3em;
 }
 
 /* Header stuff */
@@ -199,4 +202,12 @@ nav.feeds a {
     justify-content: center;
     align-items: center;
     text-decoration: none;
+}
+
+form.feed-add {
+    margin-top: 1em;
+    display: grid;
+    grid-auto-flow: row;
+    width: 30%;
+    row-gap: 0.3em;
 }

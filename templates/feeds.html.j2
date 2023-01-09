@@ -3,10 +3,12 @@
 {% block title %}Feeds{% endblock %}
 {% block feeds_content -%}
 
-<div class="feed-listing">
+<div class="content feed-listing">
 	{% for feed in feeds %}
-	<h2>{{ feed.title }}</h2>
-	Link: <a href="{{ feed.url }}">{{ feed.url }}</a>
+	<div class="feed-card">
+		<h2>{{ feed.title }}</h2>
+		Link: <a href="{{ feed.url }}">{{ feed.url }}</a>		
+	</div>
 	{% endfor %}
 </div>
 

@@ -3,6 +3,8 @@
 {% block title %}Add a feed{% endblock %}
 {% block feeds_content -%}
 
+<div class="content">
+
 <h2>Add a feed</h2>
 
 <form class="feed-add" action="/feeds/add" method="POST">
@@ -11,5 +13,7 @@
 
 	<button type="submit">Find a feed</button>
 </form>
+	
+</div>
 
 {%- endblock %}

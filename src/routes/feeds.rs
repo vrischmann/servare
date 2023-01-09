@@ -191,14 +191,42 @@ pub async fn handle_feeds_add(
     Ok(see_other("/feeds"))
 }
 
-pub async fn handle_feeds_add_form() -> Result<HttpResponse, InternalError<anyhow::Error>> {
-    let response = HttpResponse::SeeOther()
-        .insert_header((http::header::LOCATION, "/feeds"))
-        .finish();
+#[derive(askama::Template)]
+#[template(path = "feeds_add.html.j2")]
+struct FeedsAddTemplate {
+    pub user_id: Option<UserId>,
+    pub flash_messages: IncomingFlashMessages,
+}
 
-    let err = anyhow!("not implemented");
+#[tracing::instrument(
+    name = "Feeds add form",
+    skip(session, flash_messages),
+    fields(
+        user_id = tracing::field::Empty,
+    )
+)]
+pub async fn handle_feeds_add_form(
+    session: TypedSession,
+    flash_messages: IncomingFlashMessages,
+) -> Result<HttpResponse, InternalError<anyhow::Error>> {
+    let user_id = get_user_id_or_redirect(&session)?;
 
-    Err(InternalError::from_response(err, response))
+    tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
+
+    let tpl = FeedsAddTemplate {
+        user_id: Some(user_id),
+        flash_messages,
+    };
+    let tpl_rendered = tpl
+        .render()
+        .map_err(Into::<anyhow::Error>::into)
+        .map_err(e500)?;
+
+    let response = HttpResponse::Ok()
+        .content_type(http::header::ContentType::html())
+        .body(tpl_rendered);
+
+    Ok(response)
 }
 
 pub async fn handle_feeds_refresh() -> Result<HttpResponse, InternalError<anyhow::Error>> {
