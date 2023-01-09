@@ -52,6 +52,10 @@ impl Feed {
             added_at: time::OffsetDateTime::now_utc(),
         }
     }
+
+    pub fn site_link_as_url(&self) -> Option<Url> {
+        Url::parse(&self.site_link).ok()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -5,10 +5,15 @@
 
 <div class="content feed-listing">
 	{% for feed in feeds %}
-	<div class="feed-card">
-		<h2>{{ feed.title }}</h2>
-		Link: <a href="{{ feed.url }}">{{ feed.url }}</a>		
-	</div>
+	<article class="feed-card">
+		<h2 class="title">{{ feed.original.title }}</h2>
+		{% if let Some(site_link) = feed.site_link %}
+		<div class="site_link">
+			<a href="{{ site_link }}">{{ site_link.domain().unwrap_or("unknown") }}</a>		
+		</div>
+		{%  endif %}
+		<p class="description">{{ feed.original.description }}</p>
+	</article>
 	{% endfor %}
 </div>
 

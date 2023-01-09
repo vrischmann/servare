@@ -23,7 +23,12 @@ use url::Url;
 struct FeedsTemplate {
     pub user_id: Option<UserId>,
     pub flash_messages: IncomingFlashMessages,
-    pub feeds: Vec<Feed>,
+    pub feeds: Vec<FeedForTemplate>,
+}
+
+struct FeedForTemplate {
+    original: Feed,
+    site_link: Option<Url>,
 }
 
 #[tracing::instrument(
@@ -45,7 +50,17 @@ pub async fn handle_feeds(
     //
 
     // TODO(vincent): can we handle this better ?
-    let feeds = get_all_feeds(&pool, &user_id).await.map_err(e500)?;
+    let original_feeds = get_all_feeds(&pool, &user_id).await.map_err(e500)?;
+
+    let feeds = original_feeds
+        .into_iter()
+        .map(|feed| FeedForTemplate {
+            site_link: feed.site_link_as_url(),
+            original: feed,
+        })
+        .collect();
+
+    //
 
     let tpl = FeedsTemplate {
         user_id: Some(user_id),
