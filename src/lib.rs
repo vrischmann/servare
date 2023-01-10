@@ -1,9 +1,12 @@
+use bytes::Bytes;
 use std::fmt;
+use url::Url;
 
 pub mod authentication;
 pub mod configuration;
 pub mod domain;
 pub mod feed;
+pub mod html;
 mod routes;
 mod sessions;
 pub mod startup;
@@ -18,4 +21,16 @@ pub fn error_chain_fmt(err: &impl std::error::Error, f: &mut fmt::Formatter<'_>)
         current = cause.source();
     }
     Ok(())
+}
+
+/// Fetches the content of a URL directly as a bytes buffer.
+///
+/// # Errors
+///
+/// This function will return an error if the fetch fails.
+pub async fn fetch_bytes(client: &reqwest::Client, url: &Url) -> Result<Bytes, reqwest::Error> {
+    let response = client.get(url.to_string()).send().await?;
+    let response_bytes = response.bytes().await?;
+
+    Ok(response_bytes)
 }

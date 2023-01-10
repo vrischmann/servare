@@ -1,4 +1,6 @@
 use crate::domain::UserId;
+use crate::fetch_bytes;
+use crate::html::{fetch_document, find_link_in_document, FindLinkCriteria};
 use anyhow::Context;
 use feed_rs::model::Feed as RawFeed;
 use serde::{Deserialize, Serialize};
@@ -94,19 +96,11 @@ pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
         Ok(document) => {
             event!(Level::INFO, "found a HTML document, need parsing");
 
-            for link in document.find(select::predicate::Name("link")) {
-                let link_href = link.attr("href").unwrap_or_default();
-                // The href might be absolute
-                let feed_url = if !link_href.starts_with("http") {
-                    url.join(link_href)
-                } else {
-                    Url::parse(link_href)
-                }?;
+            let criteria =
+                FindLinkCriteria::AnyType(&["application/rss+xml", "application/atom+xml"]);
 
-                let link_type = link.attr("type").unwrap_or_default();
-                if link_type == "application/rss+xml" || link_type == "application/atom+xml" {
-                    return Ok(FoundFeed::Url(feed_url));
-                }
+            if let Some(url) = find_link_in_document(url, &document, criteria) {
+                return Ok(FoundFeed::Url(url));
             }
         }
         Err(err) => {
@@ -186,4 +180,23 @@ pub async fn get_all_feeds(pool: &PgPool, user_id: &UserId) -> Result<Vec<Feed>,
     }
 
     Ok(feeds)
+}
+
+/// Given a website at [`url`], try to find its favicon URL.
+///
+/// Returns ['None'] if no favicon is found.
+#[tracing::instrument(name = "Find favicon", skip(client))]
+pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
+    match fetch_document(client, url).await {
+        Ok(document) => {
+            event!(Level::DEBUG, "found a HTML document");
+
+            let criteria = FindLinkCriteria::AnyType(&["image/x-icon"]);
+            find_link_in_document(url, &document, criteria)
+        }
+        Err(err) => {
+            event!(Level::ERROR, %err, "failed to parse URL as an HTML document");
+            None
+        }
+    }
 }
