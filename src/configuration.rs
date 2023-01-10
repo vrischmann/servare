@@ -13,6 +13,17 @@ pub struct ApplicationConfig {
 }
 
 #[derive(Clone, Debug, serde::Deserialize)]
+pub struct JobConfig {
+    pub run_interval_seconds: u64,
+}
+
+impl JobConfig {
+    pub fn run_interval(&self) -> StdDuration {
+        StdDuration::from_secs(self.run_interval_seconds)
+    }
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
 pub struct SessionConfig {
     pub ttl_seconds: u64,
     pub cleanup_enabled: bool,
@@ -74,6 +85,7 @@ impl JaegerConfig {
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct Config {
     pub application: ApplicationConfig,
+    pub job: JobConfig,
     pub session: SessionConfig,
     pub database: DatabaseConfig,
     pub tem: TEMConfig,

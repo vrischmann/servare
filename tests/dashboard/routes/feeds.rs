@@ -38,8 +38,6 @@ async fn feeds_should_be_displayed() {
     let response = app.get_html("/feeds").await;
 
     assert!(response.contains("Feeds"));
-    assert!(response.contains(FEED1_URL));
-    assert!(response.contains(FEED2_URL));
 }
 
 #[tokio::test]

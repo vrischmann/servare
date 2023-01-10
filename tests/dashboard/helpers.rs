@@ -7,6 +7,7 @@ use fake::Fake;
 use once_cell::sync::Lazy;
 use servare::configuration::get_configuration;
 use servare::domain::UserId;
+use servare::shutdown::Shutdown;
 use servare::startup::Application;
 use servare::startup::{get_connection_pool, get_tem_client};
 use servare::{telemetry, tem};
@@ -175,7 +176,11 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
         .expect("Failed to build application");
     let app_port = app.port;
 
-    let _ = tokio::spawn(app.run_until_stopped());
+    // Start the app
+    let (notify_shutdown_sender, _) = tokio::sync::broadcast::channel(1);
+    let shutdown = Shutdown::new(notify_shutdown_sender.subscribe());
+
+    let _ = tokio::spawn(app.run(shutdown));
 
     // Build the test HTTP client
     let http_client = reqwest::Client::builder()

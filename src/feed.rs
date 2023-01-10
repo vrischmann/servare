@@ -1,5 +1,4 @@
 use crate::domain::UserId;
-use crate::fetch_bytes;
 use crate::html::{fetch_document, find_link_in_document, FindLinkCriteria};
 use anyhow::Context;
 use feed_rs::model::Feed as RawFeed;

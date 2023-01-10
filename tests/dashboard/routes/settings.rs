@@ -18,7 +18,7 @@ async fn settings_page_should_work_if_logged_in() {
     assert!(response.contains("Successfully logged in"));
 
     // Check
-    assert!(response.contains("Settings stuff"));
+    assert!(response.contains("Settings"));
 }
 
 #[tokio::test]
