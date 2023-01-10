@@ -1,10 +1,10 @@
 use crate::domain::UserId;
-use crate::error_chain_fmt;
 use crate::feed::{find_feed, get_all_feeds, insert_feed, Feed, FindError, FoundFeed, ParseError};
 use crate::routes::FEEDS_PAGE;
 use crate::routes::{e500, get_user_id_or_redirect, see_other};
 use crate::sessions::TypedSession;
 use crate::telemetry::spawn_blocking_with_tracing;
+use crate::{error_chain_fmt, fetch_bytes};
 use actix_web::error::InternalError;
 use actix_web::http;
 use actix_web::web;
@@ -12,7 +12,6 @@ use actix_web::HttpResponse;
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use anyhow::{anyhow, Context};
 use askama::Template;
-use bytes::Bytes;
 use serde::Deserialize;
 use sqlx::PgPool;
 use std::fmt;
@@ -31,6 +30,7 @@ struct FeedsTemplate {
 struct FeedForTemplate {
     original: Feed,
     site_link: Option<Url>,
+    site_favicon: Option<String>,
 }
 
 #[tracing::instrument(
@@ -58,6 +58,8 @@ pub async fn handle_feeds(
         .into_iter()
         .map(|feed| FeedForTemplate {
             site_link: feed.site_link_as_url(),
+            // TODO(vincent): remove this shit
+            site_favicon: Some("https://tailscale.com/files/favicon.ico".to_string()),
             original: feed,
         })
         .collect();
@@ -267,16 +269,4 @@ fn feeds_page_redirect(err: FeedAddError) -> InternalError<FeedAddError> {
         .finish();
 
     InternalError::from_response(err, response)
-}
-
-/// Fetches the content of a URL directly as a bytes buffer.
-///
-/// # Errors
-///
-/// This function will return an error if the fetch fails.
-async fn fetch_bytes(client: &reqwest::Client, url: &Url) -> Result<Bytes, reqwest::Error> {
-    let response = client.get(url.to_string()).send().await?;
-    let response_bytes = response.bytes().await?;
-
-    Ok(response_bytes)
 }
