@@ -48,11 +48,11 @@ form>input {
     font-size: 15px;
 }
 
-button {
+input[type="submit"] {
     transition: all .14s ease-out;
 }
 
-form>button[type="submit"] {
+form>input[type="submit"] {
     height: 3em;
     font-size: 15px;
 }
@@ -157,16 +157,15 @@ form.login {
     row-gap: 0.3em;
 }
 
-button.login-submit {
+input.login-submit {
     margin-top: 1em;
     border: 1px solid black;
     border-radius: 0.25em;
     background-color: var(--yellow-2);
 }
 
-button.login-submit:hover {
-    transform: translate(-0.25rem, -0.25rem);
-    box-shadow: 5px 5px 0 black;
+input.login-submit:hover {
+    background-color: var(--yellow-1);
 }
 
 /* Flash messages */
@@ -263,7 +262,7 @@ form.feed-add {
 }
 
 .feed-card:hover {
-    box-shadow: 5px 5px 0 black;
+    box-shadow: 5px 5px 4px -6px black;
 }
 
 .feed-card .title {
