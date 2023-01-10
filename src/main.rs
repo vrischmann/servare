@@ -3,10 +3,34 @@ use secrecy::Secret;
 use servare::authentication::create_user;
 use servare::configuration::{get_configuration, Config};
 use servare::domain::UserEmail;
+use servare::job::JobRunner;
+use servare::shutdown::Shutdown;
 use servare::startup::get_connection_pool;
 use servare::startup::Application;
 use servare::telemetry;
-use tracing::{error, info};
+use tracing::{debug, error, info};
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    debug!("signal received, starting graceful shutdown");
+}
 
 async fn run_serve(config: Config, _matches: &clap::ArgMatches) -> anyhow::Result<()> {
     // Setup
@@ -19,8 +43,10 @@ async fn run_serve(config: Config, _matches: &clap::ArgMatches) -> anyhow::Resul
     );
     telemetry::init_global_default(subscriber);
 
-    let pool = get_connection_pool(&config.database).await?;
-    let app = Application::build(&config.application, &config.session, pool)?;
+    //
+
+    let app_pool = get_connection_pool(&config.database).await?;
+    let app = Application::build(&config.application, &config.session, app_pool)?;
 
     info!(
         url = format!(
@@ -30,8 +56,36 @@ async fn run_serve(config: Config, _matches: &clap::ArgMatches) -> anyhow::Resul
         "running dashboard app"
     );
 
-    // Finally start the application
-    app.run_until_stopped().await?;
+    //
+
+    let job_runner_pool = get_connection_pool(&config.database).await?;
+    let job_runner = JobRunner::new(config.job, job_runner_pool)?;
+
+    // Finally start everything
+
+    // Used for shutdown notinfications
+    let (notify_shutdown_sender, _) = tokio::sync::broadcast::channel(2);
+
+    let app_shutdown = Shutdown::new(notify_shutdown_sender.subscribe());
+    let app_future = tokio::task::spawn(app.run(app_shutdown));
+
+    let job_runner_shutdown = Shutdown::new(notify_shutdown_sender.subscribe());
+    let job_runner_future = tokio::task::spawn(job_runner.run(job_runner_shutdown));
+
+    // At this point both the application and job runner are running; wait indefinitely for a shutdown notification
+
+    let shutdown = shutdown_signal();
+
+    // Spawn a task that will wait for a shutdown signal and the notify all listeners
+    tokio::spawn(async move {
+        shutdown.await;
+        let _ = notify_shutdown_sender.send(()).unwrap();
+    });
+
+    // First ? operator for the future returned by spawn()
+    // Second ? operator for the Result returned by the run() methods.
+    app_future.await??;
+    job_runner_future.await??;
 
     Ok(())
 }

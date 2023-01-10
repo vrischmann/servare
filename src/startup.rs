@@ -1,5 +1,6 @@
 use crate::configuration::{ApplicationConfig, DatabaseConfig, SessionConfig, TEMConfig};
 use crate::sessions::{CleanupConfig as SessionStoreCleanupConfig, PgSessionStore};
+use crate::shutdown::Shutdown;
 use crate::{routes::*, tem};
 use actix_session::SessionMiddleware;
 use actix_web::{cookie, dev::Server};
@@ -11,7 +12,7 @@ use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{ConnectOptions, PgPool};
 use std::net::TcpListener;
 use std::time::Duration as StdDuration;
-use tracing::error;
+use tracing::{error, info};
 use tracing_actix_web::TracingLogger;
 use tracing_log::log::LevelFilter;
 
@@ -78,10 +79,17 @@ impl Application {
         Ok(Application { port, server })
     }
 
-    pub async fn run_until_stopped(self) -> Result<(), Error> {
-        self.server.await?;
-
-        Ok(())
+    pub async fn run(self, mut shutdown: Shutdown) -> Result<(), Error> {
+        tokio::select! {
+            _ = shutdown.recv() => {
+                    info!("application shutting down");
+                    Ok(())
+            }
+            _ = self.server => {
+                    info!("server shut down");
+                    Ok(())
+            }
+        }
     }
 }
 
