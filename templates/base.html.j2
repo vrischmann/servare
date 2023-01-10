@@ -32,12 +32,19 @@
     <div class="content">
         {% for msg in flash_messages.iter() -%}
         {%- let flash_class -%}
-        {%- if msg.level() == actix_web_flash_messages::Level::Error -%}
+        {% match msg.level() %}
+        {%- when actix_web_flash_messages::Level::Error -%}
         {%- let flash_class = "flash-error" -%}
-        {%- else -%}
+        {%- when actix_web_flash_messages::Level::Warning -%}
+        {%- let flash_class = "flash-warning" -%}
+        {%- when actix_web_flash_messages::Level::Info -%}
         {%- let flash_class = "flash-info" -%}
-        {%- endif -%}
-        <p class="flash {{ flash_class }}"><i>{{ msg.content() }}</i></p>
+        {%- when actix_web_flash_messages::Level::Debug -%}
+        {%- let flash_class = "flash-debug" -%}
+        {%- when actix_web_flash_messages::Level::Success -%}
+        {%- let flash_class = "flash-success" -%}
+        {%- endmatch -%}
+        <p class="flash {{ flash_class }}">{{ msg.content() }}</p>
         {%- endfor -%}
         {%- block content -%}{%- endblock %}
     </div>

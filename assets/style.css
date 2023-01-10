@@ -170,26 +170,29 @@ input.login-submit:hover {
 
 /* Flash messages */
 
-p.flash:before {
-    content: "> ";
-}
-
 p.flash {
-    width: max-content;
-    font-size: smaller;
-    margin-bottom: 1em;
+    padding: 1em;
+    margin-top: 2em;
+    margin-bottom: 2em;
+    font-weight: bold;
+    border: 1px solid black;
+    color: black;
 }
 
 p.flash-error {
-    color: var(--red-3);
+    background-color: var(--red-1);
 }
 
 p.flash-info {
-    color: var(--yellow-2);
+    background-color: var(--yellow-1);
+}
+
+p.flash-success {
+    background-color: var(--green-1);
 }
 
 p.flash-warning {
-    color: var(--orange-1);
+    background-color: var(--orange-1);
 }
 
 /* Feeds */

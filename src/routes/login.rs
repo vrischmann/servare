@@ -109,7 +109,7 @@ pub async fn handle_login_submit(
             tracing::Span::current().record("user_id", &tracing::field::display(&user_id));
 
             event!(Level::DEBUG, "successfully logged in");
-            FlashMessage::info("Successfully logged in").send();
+            FlashMessage::success("Successfully logged in").send();
 
             session.renew();
             session
