@@ -19,7 +19,7 @@ pub enum FetchDocumentError {
 /// This function will return an error if:
 /// * the HTTP fetch fails for any reason
 /// * the response is not a valid HTML document
-#[tracing::instrument(name = "Fetch document", skip(client))]
+#[tracing::instrument(name = "Fetch document", skip(client, url))]
 pub async fn fetch_document(
     client: &reqwest::Client,
     url: &Url,

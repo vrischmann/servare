@@ -184,7 +184,7 @@ pub async fn get_all_feeds(pool: &PgPool, user_id: &UserId) -> Result<Vec<Feed>,
 /// Given a website at [`url`], try to find its favicon URL.
 ///
 /// Returns ['None'] if no favicon is found.
-#[tracing::instrument(name = "Find favicon", skip(client))]
+#[tracing::instrument(name = "Find favicon", skip(client, url))]
 pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
     match fetch_document(client, url).await {
         Ok(document) => {

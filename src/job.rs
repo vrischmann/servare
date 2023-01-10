@@ -66,7 +66,7 @@ impl JobRunner {
         let mut interval = tokio::time::interval(self.config.run_interval());
 
         // Hardcode some limits on the number of jobs to run in one tick.
-        const LIMIT: usize = 50;
+        const LIMIT: usize = 1;
 
         'outer_loop: loop {
             tokio::select! {
@@ -88,14 +88,14 @@ impl JobRunner {
     async fn run_jobs(&mut self, mut remaining: usize) -> anyhow::Result<()> {
         while remaining > 0 {
             self.fetch_favicons(&mut remaining).await?;
-
-            remaining -= 1;
         }
 
         Ok(())
     }
 
     async fn fetch_favicons(&mut self, remaining: &mut usize) -> anyhow::Result<()> {
+        // TODO(vincent): try to use the generic job table
+
         // TODO(vincent): this is not safe if run on more than one instance, more than one
         // job runner could be running this job
 
