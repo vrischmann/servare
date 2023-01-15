@@ -249,7 +249,7 @@ pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
         Ok(document) => {
             event!(Level::DEBUG, "found a HTML document");
 
-            let criteria = FindLinkCriteria::AnyType(&["image/x-icon"]);
+            let criteria = FindLinkCriteria::AnyType(&["image/x-icon", "image/icon"]);
             find_link_in_document(url, &document, criteria)
         }
         Err(err) => {
