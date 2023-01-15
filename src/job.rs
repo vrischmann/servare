@@ -171,7 +171,7 @@ impl JobRunner {
                 }
             }
 
-            // 2) Mark it as done
+            // 2) Job is done; delete it
 
             sqlx::query!("DELETE FROM jobs WHERE id = $1", record.id)
                 .execute(&mut tx)
