@@ -153,7 +153,7 @@ impl JobRunner {
             r#"
             SELECT id, data, status as "status: String", attempts
             FROM jobs
-            WHERE status != 'done'
+            WHERE status = 'pending'
             LIMIT $1
             "#,
             RUN_JOBS_LIMIT as i64,
