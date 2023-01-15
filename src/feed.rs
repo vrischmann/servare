@@ -141,7 +141,7 @@ pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
         url = tracing::field::Empty,
     )
 )]
-pub async fn insert_feed(pool: &PgPool, user_id: &UserId, feed: Feed) -> Result<(), sqlx::Error> {
+pub async fn insert_feed(pool: &PgPool, user_id: &UserId, feed: &Feed) -> Result<(), sqlx::Error> {
     // TODO(vincent): use a proper custom error type ?
 
     sqlx::query!(
