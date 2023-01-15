@@ -4,6 +4,7 @@ use anyhow::Context;
 use feed_rs::model::Feed as RawFeed;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use std::fmt;
 use tracing::{event, Level};
 use url::Url;
 use uuid::Uuid;
@@ -11,9 +12,27 @@ use uuid::Uuid;
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct FeedId(pub Uuid);
 
+impl From<Uuid> for FeedId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
 impl Default for FeedId {
     fn default() -> Self {
         Self(Uuid::new_v4())
+    }
+}
+
+impl AsRef<[u8]> for FeedId {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+impl fmt::Display for FeedId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
     }
 }
 
@@ -122,7 +141,7 @@ pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
         url = tracing::field::Empty,
     )
 )]
-pub async fn insert_feed(pool: &PgPool, user_id: &UserId, feed: Feed) -> Result<(), sqlx::Error> {
+pub async fn insert_feed(pool: &PgPool, user_id: &UserId, feed: &Feed) -> Result<(), sqlx::Error> {
     // TODO(vincent): use a proper custom error type ?
 
     sqlx::query!(

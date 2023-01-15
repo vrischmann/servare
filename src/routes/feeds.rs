@@ -1,5 +1,6 @@
 use crate::domain::UserId;
 use crate::feed::{find_feed, get_all_feeds, insert_feed, Feed, FindError, FoundFeed, ParseError};
+use crate::job::add_fetch_favicon_job;
 use crate::routes::FEEDS_PAGE;
 use crate::routes::{e500, get_user_id_or_redirect, see_other};
 use crate::sessions::TypedSession;
@@ -15,7 +16,7 @@ use askama::Template;
 use serde::Deserialize;
 use sqlx::PgPool;
 use std::fmt;
-use tracing::{event, Level};
+use tracing::{event, warn, Level};
 use url::Url;
 
 #[derive(askama::Template)]
@@ -201,12 +202,19 @@ pub async fn handle_feeds_add(
 
     // 3) Insert the feed
 
-    insert_feed(&pool, &user_id, feed)
+    insert_feed(&pool, &user_id, &feed)
         .await
         .map_err(Into::<anyhow::Error>::into)
         .context("unable to save feed")
         .map_err(Into::<FeedAddError>::into)
         .map_err(feeds_page_redirect)?;
+
+    // 4) Add needed background jobs
+    //
+    // Note we don't fail if this returns an error, it's only a backgroun job
+    if let Err(err) = add_fetch_favicon_job(pool.as_ref(), feed.id, &feed.site_link).await {
+        warn!(%err, "unable to add fetch favicon job");
+    }
 
     Ok(see_other("/feeds"))
 }
