@@ -162,13 +162,26 @@ impl JobRunner {
         .await?;
 
         for record in records {
-            let job: Job = serde_json::from_value(record.data)?;
+            // 1) Run the job
 
+            let job: Job = serde_json::from_value(record.data)?;
             match job {
                 Job::FetchFavicon(feed_id) => {
                     warn!("got data: {:?}", feed_id);
                 }
             }
+
+            // 2) Mark it as done
+
+            sqlx::query!(
+                r#"
+                UPDATE jobs SET status = 'done'
+                WHERE id = $1
+                "#,
+                record.id,
+            )
+            .execute(&mut tx)
+            .await?;
         }
 
         Ok(())
