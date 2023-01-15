@@ -140,7 +140,8 @@ fn create_server(
                 web::scope("/feeds")
                     .route("/add", web::post().to(handle_feeds_add))
                     .route("/add", web::get().to(handle_feeds_add_form))
-                    .route("/refresh", web::post().to(handle_feeds_refresh)),
+                    .route("/refresh", web::post().to(handle_feeds_refresh))
+                    .route("/{feed_id}/favicon", web::get().to(handle_feed_favicon)),
             )
             .app_data(pool.clone())
             .app_data(http_client.clone())

@@ -269,7 +269,7 @@ form.feed-add {
     border-width: 0px 0px 1px 0px;
 }
 
-.feed-card .site_link {
+.feed-card .site-link {
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: auto 1fr;
@@ -280,11 +280,11 @@ form.feed-add {
     height: min-content;
 }
 
-.feed-card .site_link a {
+.feed-card .site-link a.next-to-favicon {
     margin-left: 0.5em;
 }
 
-.feed-card .site_link a:hover {
+.feed-card .site-link a:hover {
     color: var(--gray-4);
 }
 

@@ -43,6 +43,7 @@ pub struct Feed {
     pub title: String,
     pub site_link: String, // TODO(vincent): should this be a Url ?
     pub description: String,
+    pub site_favicon: Option<Vec<u8>>,
     pub added_at: time::OffsetDateTime,
 }
 
@@ -69,6 +70,7 @@ impl Feed {
             title: feed.title.map(|v| v.content).unwrap_or_default(),
             site_link: site_link.clone(),
             description: feed.description.map(|v| v.content).unwrap_or_default(),
+            site_favicon: None,
             added_at: time::OffsetDateTime::now_utc(),
         }
     }
@@ -169,6 +171,7 @@ pub async fn get_all_feeds(pool: &PgPool, user_id: &UserId) -> Result<Vec<Feed>,
         r#"
         SELECT
             f.id, f.url, f.title, f.site_link, f.description,
+            f.site_favicon, f.has_favicon,
             f.added_at
         FROM feeds f
         INNER JOIN users u ON f.user_id = u.id
@@ -193,11 +196,47 @@ pub async fn get_all_feeds(pool: &PgPool, user_id: &UserId) -> Result<Vec<Feed>,
             title: record.title,
             site_link: record.site_link,
             description: record.description,
+            site_favicon: record.site_favicon,
             added_at: record.added_at,
         });
     }
 
     Ok(feeds)
+}
+
+#[tracing::instrument(
+    name = "Get feed favicon",
+    skip(pool),
+    fields(
+        user_id = %user_id,
+        feed_id = %feed_id,
+    ),
+)]
+pub async fn get_feed_favicon(
+    pool: &PgPool,
+    user_id: &UserId,
+    feed_id: &FeedId,
+) -> Result<Option<Vec<u8>>, anyhow::Error> {
+    let result = sqlx::query!(
+        r#"
+        SELECT f.site_favicon
+        FROM feeds f
+        INNER JOIN users u ON f.user_id = u.id
+        WHERE u.id = $1 AND f.id = $2
+        "#,
+        &user_id.0,
+        &feed_id.0,
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(Into::<anyhow::Error>::into)
+    .context("unable to fetch the feed favicon")?;
+
+    if let Some(record) = result {
+        Ok(record.site_favicon)
+    } else {
+        Ok(None)
+    }
 }
 
 /// Given a website at [`url`], try to find its favicon URL.

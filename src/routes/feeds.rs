@@ -1,5 +1,6 @@
 use crate::domain::UserId;
-use crate::feed::{find_feed, get_all_feeds, insert_feed, Feed, FindError, FoundFeed, ParseError};
+use crate::feed::{find_feed, get_all_feeds, get_feed_favicon, insert_feed};
+use crate::feed::{Feed, FeedId, FindError, FoundFeed, ParseError};
 use crate::job::add_fetch_favicon_job;
 use crate::routes::FEEDS_PAGE;
 use crate::routes::{e500, get_user_id_or_redirect, see_other};
@@ -8,7 +9,7 @@ use crate::telemetry::spawn_blocking_with_tracing;
 use crate::{error_chain_fmt, fetch_bytes};
 use actix_web::error::InternalError;
 use actix_web::http;
-use actix_web::web;
+use actix_web::web::{Data as WebData, Form as WebForm, Path as WebPath};
 use actix_web::HttpResponse;
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use anyhow::{anyhow, Context};
@@ -31,7 +32,7 @@ struct FeedsTemplate {
 struct FeedForTemplate {
     original: Feed,
     site_link: Option<Url>,
-    site_favicon: Option<String>,
+    has_favicon: bool,
 }
 
 #[tracing::instrument(
@@ -42,7 +43,7 @@ struct FeedForTemplate {
     )
 )]
 pub async fn handle_feeds(
-    pool: web::Data<PgPool>,
+    pool: WebData<PgPool>,
     session: TypedSession,
     flash_messages: IncomingFlashMessages,
 ) -> Result<HttpResponse, InternalError<anyhow::Error>> {
@@ -59,8 +60,7 @@ pub async fn handle_feeds(
         .into_iter()
         .map(|feed| FeedForTemplate {
             site_link: feed.site_link_as_url(),
-            // TODO(vincent): remove this shit
-            site_favicon: Some("https://tailscale.com/files/favicon.ico".to_string()),
+            has_favicon: feed.site_favicon.is_some(),
             original: feed,
         })
         .collect();
@@ -130,10 +130,10 @@ impl fmt::Debug for FeedAddError {
     )
 )]
 pub async fn handle_feeds_add(
-    pool: web::Data<PgPool>,
-    http_client: web::Data<reqwest::Client>,
+    pool: WebData<PgPool>,
+    http_client: WebData<reqwest::Client>,
     session: TypedSession,
-    form_data: web::Form<FeedAddFormData>,
+    form_data: WebForm<FeedAddFormData>,
 ) -> Result<HttpResponse, InternalError<FeedAddError>> {
     let user_id = get_user_id_or_redirect(&session)?;
 
@@ -267,6 +267,41 @@ pub async fn handle_feeds_refresh() -> Result<HttpResponse, InternalError<anyhow
     let err = anyhow!("not implemented");
 
     Err(InternalError::from_response(err, response))
+}
+
+#[tracing::instrument(
+    name = "Feed favicon",
+    skip(pool, session, feed_id),
+    fields(
+        user_id = tracing::field::Empty,
+        feed_id = tracing::field::Empty,
+    )
+)]
+pub async fn handle_feed_favicon(
+    pool: WebData<PgPool>,
+    session: TypedSession,
+    feed_id: WebPath<FeedId>,
+) -> Result<HttpResponse, InternalError<anyhow::Error>> {
+    let user_id = get_user_id_or_redirect(&session)?;
+    let feed_id = feed_id.into_inner();
+
+    tracing::Span::current()
+        .record("user_id", &tracing::field::display(&user_id))
+        .record("feed_id", &tracing::field::display(&feed_id));
+
+    let favicon = get_feed_favicon(&pool, &user_id, &feed_id)
+        .await
+        .map_err(e500)?;
+
+    if let Some(favicon) = favicon {
+        let response = HttpResponse::Ok()
+            .content_type("image/x-icon")
+            .body(favicon);
+
+        Ok(response)
+    } else {
+        Ok(HttpResponse::NotFound().into())
+    }
 }
 
 fn feeds_page_redirect(err: FeedAddError) -> InternalError<FeedAddError> {

@@ -8,11 +8,14 @@
 	<article class="feed-card">
 		<h2 class="title">{{ feed.original.title }}</h2>
 		{% if let Some(site_link) = feed.site_link %}
-			<div class="site_link">
-				{%- if let Some(site_favicon) = feed.site_favicon -%}
-				<img src="{{ site_favicon }}" width="32" height="32" />
+			<div class="site-link">
+				{%- let domain = site_link.domain().unwrap_or("unknown") -%}
+				{%- if feed.has_favicon -%}
+				<img src="/feeds/{{ feed.original.id.to_string() }}/favicon" width="32" height="32" />
+				<a href="{{ site_link }}" class="next-to-favicon" target="_blank" rel="noopener">{{ domain }}</a>
+				{%- else -%}
+				<a href="{{ site_link }}" target="_blank" rel="noopener">{{ domain }}</a>
 				{%- endif -%} 
-				<a href="{{ site_link }}" target="_blank" rel="noopener">{{ site_link.domain().unwrap_or("unknown") }}</a>
 			</div>
 		{% endif %}
 		<p class="description">{{ feed.original.description }}</p>
