@@ -173,15 +173,9 @@ impl JobRunner {
 
             // 2) Mark it as done
 
-            sqlx::query!(
-                r#"
-                UPDATE jobs SET status = 'done'
-                WHERE id = $1
-                "#,
-                record.id,
-            )
-            .execute(&mut tx)
-            .await?;
+            sqlx::query!("DELETE FROM jobs WHERE id = $1", record.id)
+                .execute(&mut tx)
+                .await?;
         }
 
         tx.commit().await?;
