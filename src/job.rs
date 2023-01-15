@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
 use std::fmt;
-use tracing::warn;
 use tracing::{error, info};
 use url::Url;
 use uuid::Uuid;
