@@ -2583,6 +2583,7 @@ dependencies = [
  "argon2",
  "askama",
  "async-trait",
+ "blake2",
  "bytes",
  "clap",
  "config",
