@@ -39,11 +39,20 @@ pub enum AddError {
 /// # Errors
 ///
 /// This function will return an error if .
+#[tracing::instrument(
+    name = "Add job",
+    skip(executor, job),
+    fields(
+        id = tracing::field::Empty,
+    ),
+)]
 async fn add_job<'e, E>(executor: E, job: Job) -> Result<(), AddError>
 where
     E: sqlx::PgExecutor<'e>,
 {
     let job_id = JobId::default();
+
+    tracing::Span::current().record("id", &tracing::field::display(&job_id));
 
     sqlx::query!(
         r#"
@@ -127,6 +136,7 @@ impl JobRunner {
         Ok(())
     }
 
+    #[tracing::instrument(name = "Manage jobs", skip(self))]
     async fn manage_jobs(&mut self) -> anyhow::Result<()> {
         let mut remaining = MANAGE_JOBS_LIMIT;
 
@@ -135,6 +145,7 @@ impl JobRunner {
         Ok(())
     }
 
+    #[tracing::instrument(name = "Run jobs", skip(self))]
     async fn run_jobs(&mut self) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
@@ -163,6 +174,7 @@ impl JobRunner {
         Ok(())
     }
 
+    #[tracing::instrument(name = "Add fetch favicons jobs", skip(self, remaining))]
     async fn add_fetch_favicons_jobs(&mut self, remaining: &mut usize) -> anyhow::Result<()> {
         let records = sqlx::query!(
             r#"
@@ -271,6 +283,13 @@ struct FetchFaviconJobData {
 /// This function will return an error if:
 /// * `site_link` is invalid
 /// * There was an error adding the job to the queue
+#[tracing::instrument(
+    name = "Add fetch favicon job",
+    skip(executor),
+    fields(
+        feed_id = %feed_id,
+    ),
+)]
 pub async fn add_fetch_favicon_job<'e, E>(
     executor: E,
     feed_id: FeedId,
