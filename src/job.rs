@@ -140,7 +140,7 @@ impl JobRunner {
     async fn manage_jobs(&mut self) -> anyhow::Result<()> {
         let mut remaining = MANAGE_JOBS_LIMIT;
 
-        self.add_fetch_favicons_jobs(&mut remaining).await?;
+        add_fetch_favicons_jobs(&self.pool, &mut remaining).await?;
 
         Ok(())
     }
@@ -154,6 +154,8 @@ impl JobRunner {
             SELECT id, data, status as "status: String", attempts
             FROM jobs
             WHERE status = 'pending'
+            FOR UPDATE
+            SKIP LOCKED
             LIMIT $1
             "#,
             RUN_JOBS_LIMIT as i64,
@@ -161,95 +163,56 @@ impl JobRunner {
         .fetch_all(&mut tx)
         .await?;
 
-        for record in records {
-            // 1) Run the job
+        // TODO(vincent): use an exponential backoff
+        const MAX_JOBS_ATTEMPTS: i32 = 5;
 
-            let job: Job = serde_json::from_value(record.data)?;
-            match job {
-                Job::FetchFavicon(feed_id) => {
-                    warn!("got data: {:?}", feed_id);
-                }
+        for record in records {
+            // 1) Sanity checks
+            if record.attempts >= MAX_JOBS_ATTEMPTS {
+                sqlx::query!("UPDATE jobs SET status = 'failed' WHERE id = $1", record.id)
+                    .execute(&mut tx)
+                    .await?;
+
+                continue;
             }
 
-            // 2) Job is done; delete it
+            // 2) The job is valid; run it
 
-            sqlx::query!("DELETE FROM jobs WHERE id = $1", record.id)
-                .execute(&mut tx)
-                .await?;
+            let job: Job = serde_json::from_value(record.data)?;
+            let result: anyhow::Result<()> = match job {
+                Job::FetchFavicon(data) => {
+                    do_fetch_favicon(&self.http_client, &self.pool, data).await
+                }
+            };
+
+            // 2) The job was run but it may have failed.
+            // Update its status accordingly
+
+            match result {
+                Ok(_) => {
+                    // Job has finished successfully, delete it.
+
+                    sqlx::query!("DELETE FROM jobs WHERE id = $1", record.id)
+                        .execute(&mut tx)
+                        .await?;
+                }
+                Err(err) => {
+                    error!(%err, "job failed to run, retrying at a later time");
+
+                    sqlx::query!(
+                        "UPDATE jobs SET attempts = attempts + 1 WHERE id = $1",
+                        record.id
+                    )
+                    .execute(&mut tx)
+                    .await?;
+                }
+            }
         }
 
         tx.commit().await?;
 
         Ok(())
     }
-
-    #[tracing::instrument(name = "Add fetch favicons jobs", skip(self, remaining))]
-    async fn add_fetch_favicons_jobs(&mut self, remaining: &mut usize) -> anyhow::Result<()> {
-        let records = sqlx::query!(
-            r#"
-            SELECT id, site_link
-            FROM feeds f
-            WHERE has_favicon IS NULL
-            LIMIT $1
-            "#,
-            *remaining as i64,
-        )
-        .fetch_all(&self.pool)
-        .await?;
-
-        let mut tx = self.pool.begin().await?;
-
-        for record in records {
-            let feed_id = FeedId::from(record.id);
-
-            add_fetch_favicon_job(&mut tx, feed_id, &record.site_link).await?;
-        }
-
-        tx.commit().await?;
-
-        Ok(())
-    }
-
-    // async fn fetch_favicons(&mut self, remaining: &mut usize) -> anyhow::Result<()> {
-    //     // TODO(vincent): try to use the generic job table
-
-    //     // TODO(vincent): this is not safe if run on more than one instance, more than one
-    //     // job runner could be running this job
-
-    //     let feeds = sqlx::query!(
-    //         r#"
-    //     SELECT id, site_link, site_favicon
-    //     FROM feeds f
-    //     WHERE site_favicon IS NULL
-    //     LIMIT $1
-    //     "#,
-    //         *remaining as i64,
-    //     )
-    //     .fetch_all(&self.pool)
-    //     .await?;
-
-    //     for feed in feeds {
-    //         let site_link = Url::parse(&feed.site_link)?;
-
-    //         if let Some(url) = find_favicon(&self.http_client, &site_link).await {
-    //             let favicon = fetch_bytes(&self.http_client, &url).await?;
-
-    //             sqlx::query!(
-    //                 r#"
-    //             UPDATE feeds SET site_favicon = $1 WHERE id = $2
-    //             "#,
-    //                 &favicon[..],
-    //                 &feed.id,
-    //             )
-    //             .execute(&self.pool)
-    //             .await?;
-    //         }
-
-    //         *remaining -= 1;
-    //     }
-
-    //     Ok(())
-    // }
 }
 
 //
@@ -278,6 +241,8 @@ impl Job {
         hasher.finalize().into()
     }
 }
+
+// Job: fetching a favicon
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct FetchFaviconJobData {
@@ -314,6 +279,86 @@ where
         Job::FetchFavicon(FetchFaviconJobData { feed_id, site_link }),
     )
     .await?;
+
+    Ok(())
+}
+
+/// Add as many as `remaining` jobs to fetch the favicon of a feed.
+///
+/// # Errors
+///
+/// This function will return an error if there was an error adding a job to the queue
+#[tracing::instrument(name = "Add fetch favicons jobs", skip(pool, remaining))]
+async fn add_fetch_favicons_jobs(pool: &PgPool, remaining: &mut usize) -> anyhow::Result<()> {
+    let records = sqlx::query!(
+        r#"
+            SELECT id, site_link
+            FROM feeds f
+            WHERE has_favicon IS NULL
+            LIMIT $1
+            "#,
+        *remaining as i64,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let mut tx = pool.begin().await?;
+
+    for record in records {
+        let feed_id = FeedId::from(record.id);
+
+        add_fetch_favicon_job(&mut tx, feed_id, &record.site_link).await?;
+    }
+
+    tx.commit().await?;
+
+    Ok(())
+}
+
+#[tracing::instrument(
+    name = "Do fetch favicon",
+    skip(http_client, pool, data),
+    fields(
+        feed_id = %data.feed_id,
+        site_link = %data.site_link,
+    )
+)]
+async fn do_fetch_favicon(
+    http_client: &reqwest::Client,
+    pool: &PgPool,
+    data: FetchFaviconJobData,
+) -> anyhow::Result<()> {
+    let FetchFaviconJobData { feed_id, site_link } = data;
+
+    match find_favicon(http_client, &site_link).await {
+        None => {
+            sqlx::query!(
+                r#"
+                UPDATE feeds
+                SET has_favicon = false
+                WHERE id = $1
+                "#,
+                &feed_id.0,
+            )
+            .execute(pool)
+            .await?;
+        }
+        Some(url) => {
+            let favicon = fetch_bytes(http_client, &url).await?;
+
+            sqlx::query!(
+                r#"
+                UPDATE feeds
+                SET site_favicon = $1, has_favicon = true
+                WHERE id = $2
+                "#,
+                &favicon[..],
+                &feed_id.0,
+            )
+            .execute(pool)
+            .await?;
+        }
+    }
 
     Ok(())
 }
