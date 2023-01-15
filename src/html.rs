@@ -33,17 +33,17 @@ pub async fn fetch_document(
 
 /// Criteria when finding a link in a document
 pub enum FindLinkCriteria {
-    /// Single rel attribute value to find
+    /// Rel attribute value to find
     Rel(&'static str),
-    /// Any type attribute to find
-    AnyType(&'static [&'static str]),
+    /// Type attribute value to find
+    Type(&'static str),
 }
 
 /// Find the first link in a [`select::document::Document`] matching a [`FindLinkCriteria`].
 pub fn find_link_in_document(
     url: &Url,
     document: &Document,
-    criteria: FindLinkCriteria,
+    criterias: &'static [FindLinkCriteria],
 ) -> Option<Url> {
     for link in document.find(Name("link")) {
         let link_href = link.attr("href").unwrap_or_default();
@@ -56,16 +56,16 @@ pub fn find_link_in_document(
         };
 
         if let Ok(url) = url {
-            match criteria {
-                FindLinkCriteria::Rel(rel) => {
-                    let link_rel = link.attr("rel").unwrap_or_default();
-                    if link_rel == rel {
-                        return Some(url);
+            for criteria in criterias {
+                match criteria {
+                    FindLinkCriteria::Rel(rel) => {
+                        let link_rel = link.attr("rel").unwrap_or_default();
+                        if link_rel == *rel {
+                            return Some(url);
+                        }
                     }
-                }
-                FindLinkCriteria::AnyType(types) => {
-                    let link_type = link.attr("type").unwrap_or_default();
-                    for typ in types {
+                    FindLinkCriteria::Type(typ) => {
+                        let link_type = link.attr("type").unwrap_or_default();
                         if link_type == *typ {
                             return Some(url);
                         }
@@ -95,7 +95,7 @@ mod tests {
         "#,
         );
 
-        let link = find_link_in_document(&url, &document, FindLinkCriteria::Rel("foobar"));
+        let link = find_link_in_document(&url, &document, &[FindLinkCriteria::Rel("foobar")]);
         assert!(link.is_some());
         assert_eq!("https://example.com/hello", link.unwrap().to_string())
     }
@@ -113,7 +113,7 @@ mod tests {
         "#,
         );
 
-        let link = find_link_in_document(&url, &document, FindLinkCriteria::AnyType(&["foo"]));
+        let link = find_link_in_document(&url, &document, &[FindLinkCriteria::Type("foo")]);
         assert!(link.is_some());
         assert_eq!("https://example.com/yesterday", link.unwrap().to_string())
     }

@@ -116,8 +116,10 @@ pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
         Ok(document) => {
             event!(Level::INFO, "found a HTML document, need parsing");
 
-            let criteria =
-                FindLinkCriteria::AnyType(&["application/rss+xml", "application/atom+xml"]);
+            let criteria = &[
+                FindLinkCriteria::Type("application/rss+xml"),
+                FindLinkCriteria::Type("application/atom+xml"),
+            ];
 
             if let Some(url) = find_link_in_document(url, &document, criteria) {
                 return Ok(FoundFeed::Url(url));
@@ -249,8 +251,12 @@ pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
         Ok(document) => {
             event!(Level::DEBUG, "found a HTML document");
 
-            let criteria = FindLinkCriteria::AnyType(&["image/x-icon", "image/icon"]);
-            find_link_in_document(url, &document, criteria)
+            let criterias = &[
+                FindLinkCriteria::Type("image/x-icon"),
+                FindLinkCriteria::Type("image/icon"),
+                FindLinkCriteria::Rel("icon"),
+            ];
+            find_link_in_document(url, &document, criterias)
         }
         Err(err) => {
             event!(Level::ERROR, %err, "failed to parse URL as an HTML document");
