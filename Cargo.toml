@@ -20,6 +20,7 @@ anyhow = "1"
 
 # Crypto
 argon2 = { version = "0.4", features = ["std"] }
+blake2 = "0.10"
 
 # SQL on steroids
 sqlx = { version = "0.6", default-features = false, features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "time", "migrate", "offline", "json"] }
