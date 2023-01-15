@@ -12,6 +12,12 @@ use uuid::Uuid;
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct FeedId(pub Uuid);
 
+impl From<Uuid> for FeedId {
+    fn from(id: Uuid) -> Self {
+        Self(id)
+    }
+}
+
 impl Default for FeedId {
     fn default() -> Self {
         Self(Uuid::new_v4())
