@@ -184,6 +184,8 @@ impl JobRunner {
             .await?;
         }
 
+        tx.commit().await?;
+
         Ok(())
     }
 
