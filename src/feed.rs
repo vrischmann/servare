@@ -176,6 +176,7 @@ pub async fn get_all_feeds(pool: &PgPool, user_id: &UserId) -> Result<Vec<Feed>,
         FROM feeds f
         INNER JOIN users u ON f.user_id = u.id
         WHERE u.id = $1
+        ORDER BY f.added_at DESC
         "#,
         &user_id.0,
     )
