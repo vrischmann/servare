@@ -182,6 +182,9 @@ impl JobRunner {
                 Job::FetchFavicon(data) => {
                     run_fetch_favicon_job(&self.http_client, &self.pool, data).await
                 }
+                Job::RefreshFeed(data) => {
+                    run_refresh_feed_job(&self.http_client, &self.pool, data).await
+                }
             };
 
             // 2) The job was run but it may have failed.
@@ -217,6 +220,7 @@ impl JobRunner {
 #[serde(tag = "type")]
 enum Job {
     FetchFavicon(FetchFaviconJobData),
+    RefreshFeed(RefreshFeedJobData),
 }
 
 impl Job {
@@ -232,10 +236,37 @@ impl Job {
             Job::FetchFavicon(data) => {
                 hasher.update(&data.feed_id);
             }
+            Job::RefreshFeed(data) => {
+                hasher.update(&data.feed_id);
+            }
         }
 
         hasher.finalize().into()
     }
+}
+
+// Job: refreshing a feed
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RefreshFeedJobData {
+    feed_id: FeedId,
+    feed_url: Url,
+}
+
+#[tracing::instrument(
+    name = "Run refresh feed job",
+    skip(_http_client, _pool, data),
+    fields(
+        feed_id = %data.feed_id,
+        feed_url = %data.feed_url,
+    )
+)]
+async fn run_refresh_feed_job(
+    _http_client: &reqwest::Client,
+    _pool: &PgPool,
+    data: RefreshFeedJobData,
+) -> anyhow::Result<()> {
+    Ok(())
 }
 
 // Job: fetching a favicon
