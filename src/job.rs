@@ -180,28 +180,28 @@ impl JobRunner {
             let job: Job = serde_json::from_value(record.data)?;
             let result: anyhow::Result<()> = match job {
                 Job::FetchFavicon(data) => {
-                    do_fetch_favicon(&self.http_client, &self.pool, data).await
+                    run_fetch_favicon_job(&self.http_client, &self.pool, data).await
                 }
             };
 
             // 2) The job was run but it may have failed.
             // Update its status accordingly
 
-           if let Err(err) = result {
-                    error!(%err, "job failed to run, retrying at a later time");
+            if let Err(err) = result {
+                error!(%err, "job failed to run, retrying at a later time");
 
-                    sqlx::query!(
-                        "UPDATE jobs SET attempts = attempts + 1 WHERE id = $1",
-                        record.id
-                    )
+                sqlx::query!(
+                    "UPDATE jobs SET attempts = attempts + 1 WHERE id = $1",
+                    record.id
+                )
+                .execute(&mut tx)
+                .await?;
+            } else {
+                // Job has finished successfully, delete it.
+
+                sqlx::query!("DELETE FROM jobs WHERE id = $1", record.id)
                     .execute(&mut tx)
                     .await?;
-            } else {
-                    // Job has finished successfully, delete it.
-
-                    sqlx::query!("DELETE FROM jobs WHERE id = $1", record.id)
-                        .execute(&mut tx)
-                        .await?;
             }
         }
 
@@ -312,46 +312,64 @@ async fn add_fetch_favicons_jobs(pool: &PgPool, remaining: &mut usize) -> anyhow
 }
 
 #[tracing::instrument(
-    name = "Do fetch favicon",
+    name = "Run fetch favicon job",
     skip(http_client, pool, data),
     fields(
         feed_id = %data.feed_id,
         site_link = %data.site_link,
     )
 )]
-async fn do_fetch_favicon(
+async fn run_fetch_favicon_job(
     http_client: &reqwest::Client,
     pool: &PgPool,
     data: FetchFaviconJobData,
 ) -> anyhow::Result<()> {
     let FetchFaviconJobData { feed_id, site_link } = data;
 
-    if let Some(url) = find_favicon(http_client, &site_link).await {
-        let favicon = fetch_bytes(http_client, &url).await?;
+    // 1) Find the favicon URL in the site. There might not be any.
 
-        sqlx::query!(
-            r#"
-                UPDATE feeds
-                SET site_favicon = $1, has_favicon = true
-                WHERE id = $2
-                "#,
-            &favicon[..],
-            &feed_id.0,
-        )
-        .execute(pool)
-        .await?;
+    let favicon_url = find_favicon(http_client, &site_link).await;
+
+    if let Some(url) = favicon_url {
+        // Found the favicon URL in the document, fetch it and store it.
+
+        let favicon = fetch_bytes(http_client, &url).await?;
+        set_favicon(pool, &feed_id, Some(&favicon)).await?;
     } else {
-        sqlx::query!(
-            r#"
-                UPDATE feeds
-                SET has_favicon = false
-                WHERE id = $1
-                "#,
-            &feed_id.0,
-        )
-        .execute(pool)
-        .await?;
+        // No favicon URL in the document: try to fetch the relatively standard one at favicon.ico
+
+        let favicon_url = site_link.join("/favicon.ico")?;
+        let response = http_client.get(favicon_url.to_string()).send().await?;
+
+        if response.status().is_success() {
+            // Response is a 200, assume it's a valid favicon
+            //
+            // TODO(vincent): at some point we should try to detect an image in this
+
+            let response_bytes = response.bytes().await?;
+            set_favicon(pool, &feed_id, Some(&response_bytes)).await?;
+        } else {
+            // No favicon for you !
+
+            set_favicon(pool, &feed_id, None).await?;
+        }
     }
+
+    Ok(())
+}
+
+async fn set_favicon(pool: &PgPool, feed_id: &FeedId, data: Option<&[u8]>) -> anyhow::Result<()> {
+    sqlx::query!(
+        r#"
+        UPDATE feeds
+        SET site_favicon = $1, has_favicon = $2 WHERE id = $3
+        "#,
+        data,
+        data.is_some(),
+        &feed_id.0,
+    )
+    .execute(pool)
+    .await?;
 
     Ok(())
 }
