@@ -53,10 +53,10 @@ where
     if let Some(user_id) = user_id {
         Ok(user_id)
     } else {
-            let response = see_other("/login");
-            let err = anyhow!("The user has not logged in");
+        let response = see_other("/login");
+        let err = anyhow!("The user has not logged in");
 
-            Err(InternalError::from_response(err.into(), response))
+        Err(InternalError::from_response(err.into(), response))
     }
 }
 
