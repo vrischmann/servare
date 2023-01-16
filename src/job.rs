@@ -358,6 +358,13 @@ async fn run_fetch_favicon_job(
     Ok(())
 }
 
+#[tracing::instrument(
+    name = "Set favicon",
+    skip(pool, data),
+    fields(
+        feed_id = %feed_id,
+    ),
+)]
 async fn set_favicon(pool: &PgPool, feed_id: &FeedId, data: Option<&[u8]>) -> anyhow::Result<()> {
     sqlx::query!(
         r#"
