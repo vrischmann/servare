@@ -27,6 +27,14 @@ pub fn see_other(location: &str) -> HttpResponse {
         .finish()
 }
 
+/// This is a helper function used to extract the [`UserId`] from a [`TypedSession`].
+///
+/// If there's no user id in the session _or_ the session is somehow corrupted, this returns a
+/// [`InternalError<E>`] that will redirect to the login page.
+///
+/// # Errors
+///
+/// Actual errors are converted to a 500 Internal Server Error using the [`e500`] function.
 #[tracing::instrument(name = "Get user id or redirect", skip(session))]
 pub fn get_user_id_or_redirect<E>(session: &TypedSession) -> Result<UserId, InternalError<E>>
 where
