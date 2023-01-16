@@ -259,7 +259,7 @@ form.feed-add {
 }
 
 .feed-card:hover {
-    box-shadow: 5px 5px 4px -6px black;
+    box-shadow: 2px 2px black;
 }
 
 .feed-card .title {
