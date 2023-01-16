@@ -245,12 +245,45 @@ impl Job {
     }
 }
 
+//
 // Job: refreshing a feed
+//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct RefreshFeedJobData {
     feed_id: FeedId,
     feed_url: Url,
+}
+
+/// Add a job to refresh a feed.
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// * `feed_url` is invalid
+/// * There was an error adding the job to the queue
+#[tracing::instrument(
+    name = "Add refresh feed job",
+    skip(executor),
+    fields(
+        feed_id = %feed_id,
+    )
+)]
+pub async fn add_refresh_feed_job<'e, E>(
+    executor: E,
+    feed_id: FeedId,
+    feed_url: Url,
+) -> anyhow::Result<()>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    add_job(
+        executor,
+        Job::RefreshFeed(RefreshFeedJobData { feed_id, feed_url }),
+    )
+    .await?;
+
+    Ok(())
 }
 
 #[tracing::instrument(
@@ -269,7 +302,9 @@ async fn run_refresh_feed_job(
     Ok(())
 }
 
+//
 // Job: fetching a favicon
+//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct FetchFaviconJobData {

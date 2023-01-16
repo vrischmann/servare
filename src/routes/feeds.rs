@@ -1,7 +1,7 @@
 use crate::domain::UserId;
 use crate::feed::{find_feed, get_all_feeds, get_feed_favicon, insert_feed};
 use crate::feed::{Feed, FeedId, FindError, FoundFeed, ParseError};
-use crate::job::add_fetch_favicon_job;
+use crate::job::{add_fetch_favicon_job, add_refresh_feed_job};
 use crate::routes::FEEDS_PAGE;
 use crate::routes::{e500, get_user_id_or_redirect, see_other};
 use crate::sessions::TypedSession;
@@ -54,7 +54,7 @@ pub async fn handle_feeds(
     //
 
     // TODO(vincent): can we handle this better ?
-    let original_feeds = get_all_feeds(&pool, &user_id).await.map_err(e500)?;
+    let original_feeds = get_all_feeds(pool.as_ref(), &user_id).await.map_err(e500)?;
 
     let feeds = original_feeds
         .into_iter()
@@ -259,14 +259,65 @@ pub async fn handle_feeds_add_form(
     Ok(response)
 }
 
-pub async fn handle_feeds_refresh() -> Result<HttpResponse, InternalError<anyhow::Error>> {
+#[derive(thiserror::Error)]
+pub enum FeedRefreshError {
+    #[error("Something went wrong")]
+    Unexpected(#[from] anyhow::Error),
+}
+
+impl fmt::Debug for FeedRefreshError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+#[tracing::instrument(
+    name = "Feeds refresh",
+    skip(pool, session),
+    fields(
+        user_id = tracing::field::Empty,
+    )
+)]
+pub async fn handle_feeds_refresh(
+    pool: WebData<PgPool>,
+    session: TypedSession,
+) -> Result<HttpResponse, InternalError<FeedRefreshError>> {
+    let user_id = get_user_id_or_redirect(&session)?;
+
+    // Iterate over all feeds and add a refresh job for it
+
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(Into::<anyhow::Error>::into)
+        .map_err(FeedRefreshError::Unexpected)
+        .map_err(feeds_page_redirect)?;
+
+    let feeds = get_all_feeds(&mut tx, &user_id)
+        .await
+        .map_err(FeedRefreshError::Unexpected)
+        .map_err(feeds_page_redirect)?;
+
+    for feed in feeds {
+        add_refresh_feed_job(pool.as_ref(), feed.id, feed.url)
+            .await
+            .map_err(FeedRefreshError::Unexpected)
+            .map_err(feeds_page_redirect)?;
+    }
+
+    tx.commit()
+        .await
+        .map_err(Into::<anyhow::Error>::into)
+        .map_err(FeedRefreshError::Unexpected)
+        .map_err(feeds_page_redirect)?;
+
+    // Done, redirect to the feed list
+
     let response = HttpResponse::SeeOther()
         .insert_header((http::header::LOCATION, "/feeds"))
         .finish();
 
-    let err = anyhow!("not implemented");
-
-    Err(InternalError::from_response(err, response))
+    Ok(response)
 }
 
 #[tracing::instrument(
@@ -304,7 +355,10 @@ pub async fn handle_feed_favicon(
     }
 }
 
-fn feeds_page_redirect(err: FeedAddError) -> InternalError<FeedAddError> {
+fn feeds_page_redirect<E>(err: E) -> InternalError<E>
+where
+    E: fmt::Display,
+{
     FlashMessage::error(err.to_string()).send();
 
     let response = HttpResponse::SeeOther()
