@@ -182,6 +182,9 @@ impl JobRunner {
                 Job::FetchFavicon(data) => {
                     run_fetch_favicon_job(&self.http_client, &self.pool, data).await
                 }
+                Job::RefreshFeed(data) => {
+                    run_refresh_feed_job(&self.http_client, &self.pool, data).await
+                }
             };
 
             // 2) The job was run but it may have failed.
@@ -217,6 +220,7 @@ impl JobRunner {
 #[serde(tag = "type")]
 enum Job {
     FetchFavicon(FetchFaviconJobData),
+    RefreshFeed(RefreshFeedJobData),
 }
 
 impl Job {
@@ -232,13 +236,75 @@ impl Job {
             Job::FetchFavicon(data) => {
                 hasher.update(&data.feed_id);
             }
+            Job::RefreshFeed(data) => {
+                hasher.update(&data.feed_id);
+            }
         }
 
         hasher.finalize().into()
     }
 }
 
+//
+// Job: refreshing a feed
+//
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RefreshFeedJobData {
+    feed_id: FeedId,
+    feed_url: Url,
+}
+
+/// Add a job to refresh a feed.
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// * `feed_url` is invalid
+/// * There was an error adding the job to the queue
+#[tracing::instrument(
+    name = "Add refresh feed job",
+    skip(executor),
+    fields(
+        feed_id = %feed_id,
+    )
+)]
+pub async fn add_refresh_feed_job<'e, E>(
+    executor: E,
+    feed_id: FeedId,
+    feed_url: Url,
+) -> anyhow::Result<()>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    add_job(
+        executor,
+        Job::RefreshFeed(RefreshFeedJobData { feed_id, feed_url }),
+    )
+    .await?;
+
+    Ok(())
+}
+
+#[tracing::instrument(
+    name = "Run refresh feed job",
+    skip(_http_client, _pool, data),
+    fields(
+        feed_id = %data.feed_id,
+        feed_url = %data.feed_url,
+    )
+)]
+async fn run_refresh_feed_job(
+    _http_client: &reqwest::Client,
+    _pool: &PgPool,
+    data: RefreshFeedJobData,
+) -> anyhow::Result<()> {
+    Ok(())
+}
+
+//
 // Job: fetching a favicon
+//
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct FetchFaviconJobData {
@@ -358,6 +424,13 @@ async fn run_fetch_favicon_job(
     Ok(())
 }
 
+#[tracing::instrument(
+    name = "Set favicon",
+    skip(pool, data),
+    fields(
+        feed_id = %feed_id,
+    ),
+)]
 async fn set_favicon(pool: &PgPool, feed_id: &FeedId, data: Option<&[u8]>) -> anyhow::Result<()> {
     sqlx::query!(
         r#"

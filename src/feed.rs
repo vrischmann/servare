@@ -167,8 +167,11 @@ pub async fn insert_feed(pool: &PgPool, user_id: &UserId, feed: &Feed) -> Result
     Ok(())
 }
 
-#[tracing::instrument(name = "Get all feeds", skip(pool))]
-pub async fn get_all_feeds(pool: &PgPool, user_id: &UserId) -> Result<Vec<Feed>, anyhow::Error> {
+#[tracing::instrument(name = "Get all feeds", skip(executor))]
+pub async fn get_all_feeds<'e, E>(executor: E, user_id: &UserId) -> Result<Vec<Feed>, anyhow::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
     let records = sqlx::query!(
         r#"
         SELECT
@@ -182,7 +185,7 @@ pub async fn get_all_feeds(pool: &PgPool, user_id: &UserId) -> Result<Vec<Feed>,
         "#,
         &user_id.0,
     )
-    .fetch_all(pool)
+    .fetch_all(executor)
     .await
     .map_err(Into::<anyhow::Error>::into)
     .context("unable to fetch all feeds")?;
