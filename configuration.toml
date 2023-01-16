@@ -6,7 +6,7 @@ base_url = "http://127.0.0.1"
 cookie_signing_key = "1a730b845426442ce64762fbd20930360a9c5099095b3275f6f89cb6b7f164fc5a35c5a9e26092692f914805fe6022ed1ed5e2a94570c25d3d31b8831c02b822"
 
 [job]
-run_interval_seconds = 40
+run_interval_seconds = 10
 
 [session]
 ttl_seconds = 604800
