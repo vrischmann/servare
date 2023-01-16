@@ -47,7 +47,7 @@
         {%- when actix_web_flash_messages::Level::Success -%}
         {%- let flash_class = "flash-success" -%}
         {%- endmatch -%}
-        <p class="flash {{ flash_class }}">{{ msg.content() }}</p>
+        <p class="flash {{ flash_class }}" _="on load wait 5s then transition opacity to 0 remove me">{{ msg.content() }}</p>
         {%- endfor -%}
         {%- block content -%}{%- endblock %}
     </div>
