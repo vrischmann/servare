@@ -6,9 +6,9 @@
 
 <nav class="feeds">
        <a href="/feeds/add">Add a feed</a>
-       <form action="/feeds/refresh">
-        <button type="submit">Refresh in the background</button>
-    </form>
+       <form action="/feeds/refresh" method="POST">
+              <button type="submit">Refresh in the background</button>
+       </form>
 </nav>
 
 {%- block feeds_content -%}{%- endblock -%}
