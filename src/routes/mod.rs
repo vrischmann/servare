@@ -7,6 +7,9 @@ use anyhow::anyhow;
 use std::convert::From;
 use std::fmt;
 
+/// Creates a [`InternalError<T>`] with the code 500 Internal Server Error.
+///
+/// This is useful to convert an arbitrary error into a 500 usable by actix.
 pub fn e500<T>(err: T) -> actix_web::error::InternalError<T>
 where
     T: fmt::Debug + fmt::Display + 'static,
@@ -21,6 +24,7 @@ where
 //     actix_web::error::InternalError::new(err, StatusCode::BAD_REQUEST)
 // }
 
+/// Create a 303 See Other [`HttpResponse`] redirect to `location`.
 pub fn see_other(location: &str) -> HttpResponse {
     HttpResponse::SeeOther()
         .insert_header((header::LOCATION, location))
