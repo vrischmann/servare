@@ -247,7 +247,9 @@ pub async fn get_feed_favicon(
 /// Returns ['None'] if no favicon is found.
 #[tracing::instrument(name = "Find favicon", skip(client, url))]
 pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
-    match fetch_document(client, url).await {
+    // 1) First try to find the favicon in the HTML document
+
+    let favicon_url = match fetch_document(client, url).await {
         Ok(document) => {
             event!(Level::DEBUG, "found a HTML document");
 
@@ -262,5 +264,14 @@ pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
             event!(Level::ERROR, %err, "failed to parse URL as an HTML document");
             None
         }
+    };
+
+    // 2) Maybe we got a URL from the HTML document.
+    // If we didn't default to the favicon.ico file.
+
+    if let Some(url) = favicon_url {
+        Some(url)
+    } else {
+        url.join("/favicon.ico").ok()
     }
 }
