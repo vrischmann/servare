@@ -267,6 +267,7 @@ struct RefreshFeedJobData {
     skip(executor),
     fields(
         feed_id = %feed_id,
+        feed_url = %feed_url,
     )
 )]
 pub async fn add_refresh_feed_job<'e, E>(
