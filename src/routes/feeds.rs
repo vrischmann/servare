@@ -12,7 +12,7 @@ use actix_web::http;
 use actix_web::web::{Data as WebData, Form as WebForm, Path as WebPath};
 use actix_web::HttpResponse;
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
-use anyhow::{Context};
+use anyhow::Context;
 use askama::Template;
 use serde::Deserialize;
 use sqlx::PgPool;
@@ -271,6 +271,9 @@ impl fmt::Debug for FeedRefreshError {
     }
 }
 
+/// This is the /feeds/refresh handler.
+///
+/// Adds a refresh feed job for every feed.
 #[tracing::instrument(
     name = "Feeds refresh",
     skip(pool, session),
