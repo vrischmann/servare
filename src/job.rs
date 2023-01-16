@@ -329,20 +329,7 @@ async fn do_fetch_favicon(
 ) -> anyhow::Result<()> {
     let FetchFaviconJobData { feed_id, site_link } = data;
 
-    match find_favicon(http_client, &site_link).await {
-        None => {
-            sqlx::query!(
-                r#"
-                UPDATE feeds
-                SET has_favicon = false
-                WHERE id = $1
-                "#,
-                &feed_id.0,
-            )
-            .execute(pool)
-            .await?;
-        }
-        Some(url) => {
+    if let Some(url) = find_favicon(http_client, &site_link).await {
             let favicon = fetch_bytes(http_client, &url).await?;
 
             sqlx::query!(
@@ -356,7 +343,17 @@ async fn do_fetch_favicon(
             )
             .execute(pool)
             .await?;
-        }
+    } else {
+            sqlx::query!(
+                r#"
+                UPDATE feeds
+                SET has_favicon = false
+                WHERE id = $1
+                "#,
+                &feed_id.0,
+            )
+            .execute(pool)
+            .await?;
     }
 
     Ok(())
