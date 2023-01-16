@@ -12,7 +12,7 @@ use actix_web::http;
 use actix_web::web::{Data as WebData, Form as WebForm, Path as WebPath};
 use actix_web::HttpResponse;
 use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
-use anyhow::{anyhow, Context};
+use anyhow::{Context};
 use askama::Template;
 use serde::Deserialize;
 use sqlx::PgPool;
@@ -312,6 +312,8 @@ pub async fn handle_feeds_refresh(
         .map_err(feeds_page_redirect)?;
 
     // Done, redirect to the feed list
+
+    FlashMessage::success("Refresh started").send();
 
     let response = HttpResponse::SeeOther()
         .insert_header((http::header::LOCATION, "/feeds"))
