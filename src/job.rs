@@ -187,15 +187,7 @@ impl JobRunner {
             // 2) The job was run but it may have failed.
             // Update its status accordingly
 
-            match result {
-                Ok(_) => {
-                    // Job has finished successfully, delete it.
-
-                    sqlx::query!("DELETE FROM jobs WHERE id = $1", record.id)
-                        .execute(&mut tx)
-                        .await?;
-                }
-                Err(err) => {
+           if let Err(err) = result {
                     error!(%err, "job failed to run, retrying at a later time");
 
                     sqlx::query!(
@@ -204,7 +196,12 @@ impl JobRunner {
                     )
                     .execute(&mut tx)
                     .await?;
-                }
+            } else {
+                    // Job has finished successfully, delete it.
+
+                    sqlx::query!("DELETE FROM jobs WHERE id = $1", record.id)
+                        .execute(&mut tx)
+                        .await?;
             }
         }
 
@@ -330,30 +327,30 @@ async fn do_fetch_favicon(
     let FetchFaviconJobData { feed_id, site_link } = data;
 
     if let Some(url) = find_favicon(http_client, &site_link).await {
-            let favicon = fetch_bytes(http_client, &url).await?;
+        let favicon = fetch_bytes(http_client, &url).await?;
 
-            sqlx::query!(
-                r#"
+        sqlx::query!(
+            r#"
                 UPDATE feeds
                 SET site_favicon = $1, has_favicon = true
                 WHERE id = $2
                 "#,
-                &favicon[..],
-                &feed_id.0,
-            )
-            .execute(pool)
-            .await?;
+            &favicon[..],
+            &feed_id.0,
+        )
+        .execute(pool)
+        .await?;
     } else {
-            sqlx::query!(
-                r#"
+        sqlx::query!(
+            r#"
                 UPDATE feeds
                 SET has_favicon = false
                 WHERE id = $1
                 "#,
-                &feed_id.0,
-            )
-            .execute(pool)
-            .await?;
+            &feed_id.0,
+        )
+        .execute(pool)
+        .await?;
     }
 
     Ok(())
