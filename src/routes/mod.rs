@@ -50,14 +50,13 @@ where
         .map_err(Into::<E>::into)
         .map_err(e500)?;
 
-    match user_id {
-        Some(user_id) => Ok(user_id),
-        None => {
+    if let Some(user_id) = user_id {
+        Ok(user_id)
+    } else {
             let response = see_other("/login");
             let err = anyhow!("The user has not logged in");
 
             Err(InternalError::from_response(err.into(), response))
-        }
     }
 }
 
