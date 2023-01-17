@@ -287,8 +287,6 @@ pub async fn handle_feeds_refresh(
 ) -> Result<HttpResponse, InternalError<FeedRefreshError>> {
     let user_id = get_user_id_or_redirect(&session)?;
 
-    // TODO(vincent): don't iterate here, just create a job that does the following stuff.
-
     // Iterate over all feeds and add a refresh job for it
 
     let mut tx = pool
