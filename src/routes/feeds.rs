@@ -325,6 +325,9 @@ pub async fn handle_feeds_refresh(
     Ok(response)
 }
 
+/// This is the /feeds/:feed_id/favicon handler.
+///
+/// It serves the feed's favicon data.
 #[tracing::instrument(
     name = "Feed favicon",
     skip(pool, session, feed_id),
@@ -360,6 +363,10 @@ pub async fn handle_feed_favicon(
     }
 }
 
+/// This creates a [`InternalError<E>`] from `err` and a 303 See Other response.
+/// It also sets a flash message with the content of the error [`ToString::to_string()`] method call.
+///
+/// Use this whenever you want to handle an error without returning a 500 Internal Server Error.
 fn feeds_page_redirect<E>(err: E) -> InternalError<E>
 where
     E: fmt::Display,
