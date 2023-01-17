@@ -61,14 +61,19 @@ impl Feed {
     }
 
     pub fn from_raw_feed(url: &Url, feed: RawFeed) -> Self {
-        // TODO(vincent): this is broken
-        let site_link = &feed.links[0].href;
+        let site_link = feed
+            .links
+            .into_iter()
+            .filter(|link| link.rel.is_none())
+            .map(|link| link.href)
+            .collect::<Vec<String>>()
+            .remove(0);
 
         Feed {
             id: FeedId::default(),
             url: url.clone(),
             title: feed.title.map(|v| v.content).unwrap_or_default(),
-            site_link: site_link.clone(),
+            site_link,
             description: feed.description.map(|v| v.content).unwrap_or_default(),
             site_favicon: None,
             added_at: time::OffsetDateTime::now_utc(),
@@ -267,5 +272,54 @@ pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
             event!(Level::ERROR, %err, "failed to parse URL as an HTML document");
             None
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::parse_url;
+
+    #[test]
+    fn feed_parse_should_work() {
+        const DATA: &str = r#"
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+<channel>
+<title>Foo</title>
+<link>https://example.com/blog/</link>
+<description>Foo</description>
+<atom:link href="https://example.com/blog/index.xml" rel="self" type="application/rss+xml"/>
+</channel>
+</rss>"#;
+
+        let url = parse_url("https://example.com/blog/");
+
+        let feed = Feed::parse(&url, DATA.as_bytes()).unwrap();
+        assert_eq!(feed.title, "Foo");
+        assert_eq!(feed.site_link, "https://example.com/blog/");
+        assert_eq!(feed.description, "Foo");
+    }
+
+    #[test]
+    fn feed_parse_should_work_even_with_links_not_in_order() {
+        // Move the relevant site link _after_ the "self" link.
+        // We expect to ignore the self link.
+
+        const DATA: &str = r#"
+<rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0">
+<channel>
+<atom:link href="https://example.com/blog/index.xml" rel="self" type="application/rss+xml"/>
+<title>Foo</title>
+<description>Foo</description>
+<link>https://example.com/blog/</link>
+</channel>
+</rss>"#;
+
+        let url = parse_url("https://example.com/blog/");
+
+        let feed = Feed::parse(&url, DATA.as_bytes()).unwrap();
+        assert_eq!(feed.title, "Foo");
+        assert_eq!(feed.site_link, "https://example.com/blog/");
+        assert_eq!(feed.description, "Foo");
     }
 }
