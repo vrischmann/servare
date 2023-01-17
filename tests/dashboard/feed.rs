@@ -1,5 +1,6 @@
-use crate::helpers::{fetch, parse_url, testdata};
+use crate::helpers::fetch;
 use servare::feed::{find_feed, Feed, FoundFeed};
+use servare::tests::{parse_url, testdata};
 use wiremock::matchers::any;
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
