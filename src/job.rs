@@ -1,5 +1,5 @@
 use crate::configuration::JobConfig;
-use crate::feed::{find_favicon, FeedId};
+use crate::feed::{find_favicon, insert_feed_entry, Feed, FeedEntry, FeedId};
 use crate::fetch_bytes;
 use crate::shutdown::Shutdown;
 use blake2::{Blake2b512, Digest};
@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
 use std::fmt;
-use tracing::{error, info};
+use tracing::{error, event, info, Level};
 use url::Url;
 use uuid::Uuid;
 
@@ -289,17 +289,53 @@ where
 
 #[tracing::instrument(
     name = "Run refresh feed job",
-    skip(_http_client, _pool, data),
+    skip(http_client, pool, data),
     fields(
         feed_id = %data.feed_id,
         feed_url = %data.feed_url,
     )
 )]
 async fn run_refresh_feed_job(
-    _http_client: &reqwest::Client,
-    _pool: &PgPool,
+    http_client: &reqwest::Client,
+    pool: &PgPool,
     data: RefreshFeedJobData,
 ) -> anyhow::Result<()> {
+    let response_bytes = fetch_bytes(http_client, &data.feed_url)
+        .await
+        .map_err(Into::<anyhow::Error>::into)?;
+
+    // Try to parse as a feed
+    let (feed, feed_entries) = {
+        let mut raw_feed =
+            feed_rs::parser::parse(&response_bytes[..]).map_err(Into::<anyhow::Error>::into)?;
+        let raw_entries = std::mem::take(&mut raw_feed.entries);
+
+        (
+            Feed::from_raw_feed(&data.feed_url, raw_feed),
+            raw_entries
+                .into_iter()
+                .map(FeedEntry::from_raw_feed_entry)
+                .collect::<Vec<FeedEntry>>(),
+        )
+    };
+
+    event!(
+        Level::INFO,
+        title = %feed.title,
+        entries = %feed_entries.len(),
+        "found a raw feed",
+    );
+
+    // Insert all items
+
+    let mut tx = pool.begin().await?;
+
+    for entry in feed_entries {
+        insert_feed_entry(&mut tx, &data.feed_id, &entry).await?;
+    }
+
+    tx.commit().await?;
+
     Ok(())
 }
 

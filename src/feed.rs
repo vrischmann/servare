@@ -1,38 +1,48 @@
 use crate::domain::UserId;
 use crate::html::{fetch_document, find_link_in_document, FindLinkCriteria};
+use crate::typed_uuid;
 use anyhow::Context;
-use feed_rs::model::Feed as RawFeed;
+use feed_rs::model::{Entry as RawFeedEntry, Feed as RawFeed};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
-use std::fmt;
 use tracing::{event, Level};
 use url::Url;
 use uuid::Uuid;
 
 #[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct FeedId(pub Uuid);
+typed_uuid!(FeedId);
 
-impl From<Uuid> for FeedId {
-    fn from(id: Uuid) -> Self {
-        Self(id)
-    }
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+pub struct FeedEntryId(pub Uuid);
+typed_uuid!(FeedEntryId);
+
+#[derive(Debug)]
+pub struct FeedEntry {
+    id: FeedEntryId,
+    url: Option<Url>,
+    title: String,
+    content: String,
+    summary: String,
 }
 
-impl Default for FeedId {
-    fn default() -> Self {
-        Self(Uuid::new_v4())
-    }
-}
+impl FeedEntry {
+    pub fn from_raw_feed_entry(entry: RawFeedEntry) -> Self {
+        // TODO(vincent): choose the correct one
+        // let url = entry
+        //     .links
+        //     .into_iter()
+        //     .map(|v| Url::parse(&v.href))
+        //     .last()
+        //     .ok();
 
-impl AsRef<[u8]> for FeedId {
-    fn as_ref(&self) -> &[u8] {
-        self.0.as_ref()
-    }
-}
-
-impl fmt::Display for FeedId {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.0.fmt(f)
+        Self {
+            id: FeedEntryId::default(),
+            url: None,
+            title: entry.title.map(|v| v.content).unwrap_or_default(),
+            content: entry.content.and_then(|v| v.body).unwrap_or_default(),
+            summary: entry.summary.map(|v| v.content).unwrap_or_default(),
+        }
     }
 }
 
@@ -273,6 +283,42 @@ pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
             None
         }
     }
+}
+
+/// Create a new feed entry in the database for this `user_id`.
+#[tracing::instrument(
+    name = "Insert feed entry",
+    skip(executor, entry),
+    fields(
+        feed_id = %feed_id,
+        url = tracing::field::Empty,
+    )
+)]
+pub async fn insert_feed_entry<'e, E>(
+    executor: E,
+    feed_id: &FeedId,
+    entry: &FeedEntry,
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    sqlx::query!(
+        r#"
+        INSERT INTO feed_entries(id, feed_id, title, url, created_at, creator, summary)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        "#,
+        &entry.id.0,
+        &feed_id.0,
+        &entry.title,
+        entry.url.as_ref().map(Url::to_string),
+        time::OffsetDateTime::now_utc(), // TODO(vincent): use the correct time
+        "",                              // TODO(vincent): use the correct creator
+        &entry.summary,
+    )
+    .execute(executor)
+    .await?;
+
+    Ok(())
 }
 
 #[cfg(test)]

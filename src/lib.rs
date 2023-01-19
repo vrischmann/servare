@@ -37,3 +37,32 @@ pub async fn fetch_bytes(client: &reqwest::Client, url: &Url) -> Result<Bytes, r
 
     Ok(response_bytes)
 }
+
+#[macro_export]
+macro_rules! typed_uuid {
+    ($t:ident) => {
+        impl From<uuid::Uuid> for $t {
+            fn from(id: uuid::Uuid) -> Self {
+                Self(id)
+            }
+        }
+
+        impl Default for $t {
+            fn default() -> Self {
+                Self(uuid::Uuid::new_v4())
+            }
+        }
+
+        impl AsRef<[u8]> for $t {
+            fn as_ref(&self) -> &[u8] {
+                self.0.as_ref()
+            }
+        }
+
+        impl std::fmt::Display for $t {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+    };
+}
