@@ -3,7 +3,6 @@ use crate::helpers::{LoginBody, TestData};
 use select::document::Document;
 use select::predicate::Class;
 use serde::Serialize;
-use servare::tests::parse_url;
 use url::Url;
 use wiremock::matchers::path;
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -31,7 +30,7 @@ async fn feeds_should_be_displayed() {
 
     let mock_server = MockServer::start().await;
     let mock_uri = mock_server.uri();
-    let mock_url = parse_url(mock_uri);
+    let mock_url = Url::parse(&mock_uri).unwrap();
 
     Mock::given(path("/feed1"))
         .respond_with(ResponseTemplate::new(200).set_body_raw(
