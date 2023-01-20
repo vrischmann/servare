@@ -302,6 +302,8 @@ pub async fn insert_feed_entry<'e, E>(
 where
     E: sqlx::PgExecutor<'e>,
 {
+    let _ = entry.content; // TODO(vincent): insert the content
+
     sqlx::query!(
         r#"
         INSERT INTO feed_entries(id, feed_id, title, url, created_at, creator, summary)
