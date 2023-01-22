@@ -326,9 +326,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{fetch, parse_url, testdata};
+    use crate::tests::{fetch, parse_url};
     use wiremock::matchers::any;
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[derive(rust_embed::RustEmbed)]
+    #[folder = "testdata/"]
+    struct TestData;
 
     #[test]
     fn feed_parse_should_work() {
@@ -380,10 +384,10 @@ mod tests {
         let mock_url = parse_url(mock_uri);
 
         Mock::given(any())
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_raw(testdata("tailscale_rss_feed.xml"), "application/xml"),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_raw(
+                TestData::get("tailscale_rss_feed.xml").unwrap().data,
+                "application/xml",
+            ))
             .expect(1)
             .mount(&mock_server)
             .await;
