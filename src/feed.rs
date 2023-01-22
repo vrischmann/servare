@@ -326,7 +326,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::parse_url;
+    use crate::tests::{fetch, parse_url, testdata};
+    use wiremock::matchers::any;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[test]
     fn feed_parse_should_work() {
@@ -369,5 +371,33 @@ mod tests {
         assert_eq!(feed.title, "Foo");
         assert_eq!(feed.site_link, "https://example.com/blog/");
         assert_eq!(feed.description, "Foo");
+    }
+
+    #[tokio::test]
+    async fn find_feed_should_work() {
+        let mock_server = MockServer::start().await;
+        let mock_uri = mock_server.uri();
+        let mock_url = parse_url(mock_uri);
+
+        Mock::given(any())
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_raw(testdata("tailscale_rss_feed.xml"), "application/xml"),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let data = fetch(&mock_url).await;
+        let found_feed = find_feed(&mock_url, &data[..]).unwrap();
+
+        let feed = match found_feed {
+            FoundFeed::Raw(raw_feed) => Feed::from_raw_feed(&mock_url, raw_feed),
+            FoundFeed::Url(_) => panic!("expected a FoundFeed::Raw"),
+        };
+
+        assert_eq!("Blog on Tailscale", feed.title);
+        assert_eq!("https://tailscale.com/blog/", feed.site_link);
+        assert_eq!("Recent content in Blog on Tailscale", feed.description);
     }
 }

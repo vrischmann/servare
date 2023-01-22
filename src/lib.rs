@@ -5,7 +5,7 @@ use url::Url;
 pub mod authentication;
 pub mod configuration;
 pub mod domain;
-pub mod feed;
+mod feed;
 pub mod html;
 pub mod job;
 mod routes;
