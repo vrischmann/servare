@@ -326,7 +326,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::tests::{fetch, parse_url};
+    use crate::tests::fetch;
     use wiremock::matchers::any;
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -346,7 +346,7 @@ mod tests {
 </channel>
 </rss>"#;
 
-        let url = parse_url("https://example.com/blog/");
+        let url = Url::parse("https://example.com/blog/").unwrap();
 
         let feed = Feed::parse(&url, DATA.as_bytes()).unwrap();
         assert_eq!(feed.title, "Foo");
@@ -369,7 +369,7 @@ mod tests {
 </channel>
 </rss>"#;
 
-        let url = parse_url("https://example.com/blog/");
+        let url = Url::parse("https://example.com/blog/").unwrap();
 
         let feed = Feed::parse(&url, DATA.as_bytes()).unwrap();
         assert_eq!(feed.title, "Foo");
@@ -381,7 +381,7 @@ mod tests {
     async fn find_feed_should_work() {
         let mock_server = MockServer::start().await;
         let mock_uri = mock_server.uri();
-        let mock_url = parse_url(mock_uri);
+        let mock_url = Url::parse(&mock_uri).unwrap();
 
         Mock::given(any())
             .respond_with(ResponseTemplate::new(200).set_body_raw(

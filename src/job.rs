@@ -483,3 +483,69 @@ async fn set_favicon(pool: &PgPool, feed_id: &FeedId, data: Option<&[u8]>) -> an
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::feed::get_feed_favicon;
+    use crate::tests::{create_feed, create_user, get_pool};
+    use wiremock::matchers::path;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[tokio::test]
+    async fn fetch_favicon_job_should_work_when_link_exists_in_site() {
+        let pool = get_pool().await;
+        let http_client = reqwest::Client::new();
+
+        // Setup a mock server that:
+        // * responds with a basic HTML containing a favicon link
+        // * responds with a fake favicon
+
+        let mock_server = MockServer::start().await;
+        let mock_uri = mock_server.uri();
+        let mock_url = Url::parse(&mock_uri).unwrap();
+
+        let fake_icon_data: &[u8] = b"\xde\xad\xbe\xef";
+
+        Mock::given(path("/icon.png"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(fake_icon_data))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        const HTML: &str = r#"
+        <head>
+        <link type="image/x-icon" href="/icon.png">
+        </head>
+        "#;
+
+        Mock::given(path("/"))
+            .respond_with(ResponseTemplate::new(200).set_body_raw(HTML, "text/html"))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        // Create a test user and feed
+
+        let user_id = create_user(&pool).await;
+        let feed_id =
+            create_feed(&pool, &user_id, &mock_url.join("/feed").unwrap(), &mock_url).await;
+
+        // Run the job
+
+        let data = FetchFaviconJobData {
+            feed_id: feed_id.clone(),
+            site_link: mock_url,
+        };
+
+        run_fetch_favicon_job(&http_client, &pool, data)
+            .await
+            .unwrap();
+
+        // Check the result
+
+        let favicon = get_feed_favicon(&pool, &user_id, &feed_id).await.unwrap();
+        assert!(favicon.is_some());
+        assert_eq!(fake_icon_data, &favicon.unwrap()[..]);
+    }
+}

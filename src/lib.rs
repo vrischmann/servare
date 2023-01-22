@@ -14,6 +14,7 @@ pub mod shutdown;
 pub mod startup;
 pub mod telemetry;
 pub mod tem;
+#[cfg(test)]
 pub mod tests;
 
 pub fn error_chain_fmt(err: &impl std::error::Error, f: &mut fmt::Formatter<'_>) -> fmt::Result {

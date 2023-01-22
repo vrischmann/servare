@@ -177,7 +177,6 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
 
     let _ = tokio::spawn(app.run(shutdown));
 
-    // Build the test HTTP client
     let http_client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .cookie_store(true)
