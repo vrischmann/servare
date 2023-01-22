@@ -1,9 +1,9 @@
-use crate::helpers::LoginBody;
 use crate::helpers::{assert_is_redirect_to, spawn_app};
+use crate::helpers::{LoginBody, TestData};
 use select::document::Document;
 use select::predicate::Class;
 use serde::Serialize;
-use servare::tests::{parse_url, testdata};
+use servare::tests::parse_url;
 use url::Url;
 use wiremock::matchers::path;
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -34,10 +34,10 @@ async fn feeds_should_be_displayed() {
     let mock_url = parse_url(mock_uri);
 
     Mock::given(path("/feed1"))
-        .respond_with(
-            ResponseTemplate::new(200)
-                .set_body_raw(testdata("tailscale_rss_feed.xml"), "application/xml"),
-        )
+        .respond_with(ResponseTemplate::new(200).set_body_raw(
+            TestData::get("tailscale_rss_feed.xml").unwrap().data,
+            "application/xml",
+        ))
         .expect(2)
         .mount(&mock_server)
         .await;
