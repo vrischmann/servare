@@ -216,6 +216,8 @@ pub async fn handle_feeds_add(
         warn!(%err, "unable to add fetch favicon job");
     }
 
+    FlashMessage::success("Found a feed").send();
+
     Ok(see_other("/feeds"))
 }
 
