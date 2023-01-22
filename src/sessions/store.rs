@@ -353,4 +353,31 @@ mod tests {
 
         assert!(loaded_state.is_none(), "found state for {:?}", session_key);
     }
+
+    #[sqlx::test]
+    async fn updating_a_non_existing_session_creates_it(pool: PgPool) {
+        let store =
+            PgSessionStore::new(pool, CleanupConfig::new(true, Duration::milliseconds(100)));
+
+        let session_key = uuid_to_session_key(Uuid::new_v4()).unwrap();
+        let state = make_state();
+
+        let session_key = store
+            .update(session_key, state.clone(), &Duration::milliseconds(1000))
+            .await
+            .expect("Unable to save the session");
+
+        tokio::time::sleep(Duration::milliseconds(200).unsigned_abs()).await;
+
+        let loaded_state = store
+            .load(&session_key)
+            .await
+            .expect("Unable to load the session");
+
+        assert!(
+            loaded_state.is_some(),
+            "found no state for {:?}",
+            session_key
+        );
+    }
 }
