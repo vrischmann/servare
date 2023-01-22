@@ -38,3 +38,12 @@ where
 {
     Url::parse(url.as_ref()).expect("unable to parse URL")
 }
+
+pub async fn fetch(url: &Url) -> bytes::Bytes {
+    let client = reqwest::Client::new();
+
+    let response = client.get(url.to_string()).send().await.unwrap();
+    let response_body = response.bytes().await.unwrap();
+
+    response_body
+}

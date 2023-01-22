@@ -1,7 +1,6 @@
 use anyhow::Context;
 use argon2::password_hash::{PasswordHasher, SaltString};
 use argon2::Argon2;
-use bytes::Bytes;
 use fake::faker::internet::en::{Password as FakerPassword, SafeEmail as FakerSafeEmail};
 use fake::Fake;
 use once_cell::sync::Lazy;
@@ -12,7 +11,6 @@ use servare::startup::Application;
 use servare::startup::{get_connection_pool, get_tem_client};
 use servare::{telemetry, tem};
 use sqlx::PgPool;
-use url::Url;
 use uuid::Uuid;
 use wiremock::MockServer;
 
@@ -215,13 +213,4 @@ pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
         303
     );
     assert_eq!(response.headers().get("Location").unwrap(), location);
-}
-
-pub async fn fetch(url: &Url) -> Bytes {
-    let client = reqwest::Client::new();
-
-    let response = client.get(url.to_string()).send().await.unwrap();
-    let response_body = response.bytes().await.unwrap();
-
-    response_body
 }
