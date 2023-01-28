@@ -4,6 +4,10 @@ dev:
 	sqlx database setup
 	DATABASE_NAME=servare RUST_LOG=sqlx=error,info cargo watch -x 'run -- serve'
 
+check:
+	sqlx database setup
+	DATABASE_NAME=servare cargo watch -x 'check --all-targets --all-features'
+
 prepare:
 	cargo sqlx prepare -- --all-targets --all-features
 
