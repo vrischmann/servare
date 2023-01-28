@@ -351,7 +351,7 @@ mod tests {
             .await
             .expect("Unable to load the session");
 
-        assert!(loaded_state.is_none(), "found state for {:?}", session_key);
+        assert!(loaded_state.is_none(), "found state for {session_key:?}");
     }
 
     #[sqlx::test]
@@ -374,10 +374,6 @@ mod tests {
             .await
             .expect("Unable to load the session");
 
-        assert!(
-            loaded_state.is_some(),
-            "found no state for {:?}",
-            session_key
-        );
+        assert!(loaded_state.is_some(), "found no state for {session_key:?}");
     }
 }
