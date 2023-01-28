@@ -2,8 +2,10 @@ default: dev
 
 dev:
 	sqlx database setup
+	DATABASE_NAME=servare RUST_LOG=sqlx=error,info cargo watch -x 'run -- serve'
+
+prepare:
 	cargo sqlx prepare -- --all-targets --all-features
-	cargo watch -x run
 
 install-tools:
 	cargo install sqlx-cli --no-default-features --features rustls,sqlite,postgres
