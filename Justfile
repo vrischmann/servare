@@ -8,6 +8,9 @@ check:
 	sqlx database setup
 	DATABASE_NAME=servare cargo watch -x 'check --all-targets --all-features'
 
+clippy:
+	cargo clippy -- --deny=warnings
+
 prepare:
 	cargo sqlx prepare -- --all-targets --all-features
 
