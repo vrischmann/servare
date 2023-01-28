@@ -205,7 +205,7 @@ where
     .map_err(Into::<anyhow::Error>::into)
     .context("unable to fetch all feeds")?;
 
-    let mut feeds = Vec::new();
+    let mut feeds = Vec::with_capacity(records.len());
     for record in records {
         let url = Url::parse(&record.url)
             .map_err(Into::<anyhow::Error>::into)
