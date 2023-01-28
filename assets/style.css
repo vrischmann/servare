@@ -290,3 +290,63 @@ form.feed-add {
 .feed-card .description {
     padding: 10px 20px 10px 20px;
 }
+
+.feed-card a.title-link {
+    text-decoration: none;
+}
+
+.feed-card a.title-link:hover {
+    text-decoration: none;
+    color: var(--gray-4);
+}
+
+/* Feed entries */
+
+.feed-entries-listing {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1em;
+}
+
+.feed-entry-card {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    border: black 1px solid;
+    border-radius: 0.25em;
+    background-color: var(--stone-2);
+}
+
+.feed-entry-card:hover {
+    box-shadow: 2px 2px black;
+}
+
+.feed-entry-card .title {
+    padding: 10px 20px 10px 20px;
+    border: black solid;
+    border-width: 0px 0px 1px 0px;
+}
+
+.feed-entry-card a.title-link {
+    text-decoration: none;
+}
+
+.feed-entry-card a.title-link:hover {
+    text-decoration: none;
+    color: var(--gray-4);
+}
+
+.feed-entry-card .metadata {
+    display: grid;
+    grid-template-columns: auto 2fr;
+    /*    letter-spacing: -1px;*/
+}
+
+.feed-entry-card .metadata>.created-at {
+    border: black solid;
+    border-width: 0px 1px 0px 0px;
+    padding: 10px;
+}
+
+.feed-entry-card .metadata>.author {
+    padding: 10px;
+}

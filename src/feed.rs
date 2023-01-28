@@ -2,7 +2,7 @@ use crate::domain::UserId;
 use crate::html::{fetch_document, find_link_in_document, FindLinkCriteria};
 use crate::typed_uuid;
 use anyhow::Context;
-use feed_rs::model::{Entry as RawFeedEntry, Feed as RawFeed};
+use feed_rs::model::Feed as RawFeed;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use tracing::{event, Level};
@@ -17,34 +17,18 @@ typed_uuid!(FeedId);
 pub struct FeedEntryId(pub Uuid);
 typed_uuid!(FeedEntryId);
 
+/// Represents a feed entry.
 #[derive(Debug)]
 pub struct FeedEntry {
-    id: FeedEntryId,
-    url: Option<Url>,
-    title: String,
-    content: String,
-    summary: String,
+    pub id: FeedEntryId,
+    pub url: Option<Url>,
+    pub title: String,
+    pub summary: String,
+    pub created_at: time::OffsetDateTime,
+    pub authors: Vec<String>,
 }
 
-impl FeedEntry {
-    pub fn from_raw_feed_entry(entry: RawFeedEntry) -> Self {
-        // TODO(vincent): choose the correct one
-        // let url = entry
-        //     .links
-        //     .into_iter()
-        //     .map(|v| Url::parse(&v.href))
-        //     .last()
-        //     .ok();
-
-        Self {
-            id: FeedEntryId::default(),
-            url: None,
-            title: entry.title.map(|v| v.content).unwrap_or_default(),
-            content: entry.content.and_then(|v| v.body).unwrap_or_default(),
-            summary: entry.summary.map(|v| v.content).unwrap_or_default(),
-        }
-    }
-}
+impl FeedEntry {}
 
 #[derive(Debug)]
 pub struct Feed {
@@ -225,6 +209,55 @@ where
     Ok(feeds)
 }
 
+#[tracing::instrument(name = "Get feeds", skip(executor))]
+pub async fn get_feed<'e, E>(
+    executor: E,
+    user_id: &UserId,
+    feed_id: &FeedId,
+) -> Result<Option<Feed>, anyhow::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    let record = sqlx::query!(
+        r#"
+        SELECT
+            f.id, f.url, f.title, f.site_link, f.description,
+            f.site_favicon, f.has_favicon,
+            f.added_at
+        FROM feeds f
+        INNER JOIN users u ON f.user_id = u.id
+        WHERE u.id = $1 AND f.id = $2
+
+        "#,
+        &user_id.0,
+        &feed_id.0,
+    )
+    .fetch_optional(executor)
+    .await
+    .map_err(Into::<anyhow::Error>::into)
+    .context("unable to fetch feed")?;
+
+    if let Some(record) = record {
+        let url = Url::parse(&record.url)
+            .map_err(Into::<anyhow::Error>::into)
+            .context("unable to parse the stored feed URL")?;
+
+        let feed = Feed {
+            id: FeedId(record.id),
+            url,
+            title: record.title,
+            site_link: record.site_link,
+            description: record.description,
+            site_favicon: record.site_favicon,
+            added_at: record.added_at,
+        };
+
+        Ok(Some(feed))
+    } else {
+        Ok(None)
+    }
+}
+
 #[tracing::instrument(
     name = "Get feed favicon",
     skip(pool),
@@ -285,42 +318,68 @@ pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
     }
 }
 
-/// Create a new feed entry in the database for this `user_id`.
+/// Get all entries for the feed `feed_id`.
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// * a SQL error occurred
+/// * the stored feed entry URL is invalid somehow
 #[tracing::instrument(
-    name = "Insert feed entry",
-    skip(executor, entry),
+    name = "Get feed entries",
+    skip(executor),
     fields(
+        user_id = %user_id,
         feed_id = %feed_id,
-        url = tracing::field::Empty,
-    )
+    ),
 )]
-pub async fn insert_feed_entry<'e, E>(
+pub async fn get_feed_entries<'e, E>(
     executor: E,
+    user_id: &UserId,
     feed_id: &FeedId,
-    entry: &FeedEntry,
-) -> Result<(), sqlx::Error>
+) -> Result<Vec<FeedEntry>, anyhow::Error>
 where
     E: sqlx::PgExecutor<'e>,
 {
-    let _ = entry.content; // TODO(vincent): insert the content
-
-    sqlx::query!(
+    let records = sqlx::query!(
         r#"
-        INSERT INTO feed_entries(id, feed_id, title, url, created_at, creator, summary)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        SELECT
+          fe.id, fe.title, fe.url, fe.summary, fe.created_at, fe.authors
+        FROM feeds f
+        INNER JOIN feed_entries fe ON fe.feed_id = f.id
+        INNER JOIN users u ON f.user_id = u.id
+        WHERE u.id = $1 AND f.id = $2
         "#,
-        &entry.id.0,
+        &user_id.0,
         &feed_id.0,
-        &entry.title,
-        entry.url.as_ref().map(Url::to_string),
-        time::OffsetDateTime::now_utc(), // TODO(vincent): use the correct time
-        "",                              // TODO(vincent): use the correct creator
-        &entry.summary,
     )
-    .execute(executor)
-    .await?;
+    .fetch_all(executor)
+    .await
+    .map_err(Into::<anyhow::Error>::into)
+    .context("unable to fetch the feed entries")?;
 
-    Ok(())
+    let mut entries = Vec::with_capacity(records.len());
+    for record in records {
+        // This ugly thing goes from:
+        // Option<String> to Option<&str> to Result<Option<Url>, _>
+        let url = {
+            let url_str: Option<&str> = record.url.as_deref();
+            url_str.map(Url::parse).transpose()
+        }
+        .map_err(Into::<anyhow::Error>::into)
+        .context("unable to parse the stored feed entry URL")?;
+
+        entries.push(FeedEntry {
+            id: FeedEntryId(record.id),
+            url,
+            title: record.title,
+            summary: record.summary,
+            created_at: record.created_at,
+            authors: record.authors.unwrap_or_default(),
+        })
+    }
+
+    Ok(entries)
 }
 
 #[cfg(test)]

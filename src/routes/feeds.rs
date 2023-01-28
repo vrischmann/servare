@@ -1,6 +1,8 @@
 use crate::domain::UserId;
-use crate::feed::{find_feed, get_all_feeds, get_feed_favicon, insert_feed};
-use crate::feed::{Feed, FeedId, FindError, FoundFeed, ParseError};
+use crate::feed::{
+    find_feed, get_all_feeds, get_feed, get_feed_entries, get_feed_favicon, insert_feed,
+};
+use crate::feed::{Feed, FeedEntry, FeedId, FindError, FoundFeed, ParseError};
 use crate::job::{add_fetch_favicon_job, add_refresh_feed_job};
 use crate::routes::FEEDS_PAGE;
 use crate::routes::{e500, get_user_id_or_redirect, see_other};
@@ -33,6 +35,16 @@ struct FeedForTemplate {
     original: Feed,
     site_link: Option<Url>,
     has_favicon: bool,
+}
+
+impl FeedForTemplate {
+    fn new(feed: Feed) -> Self {
+        Self {
+            site_link: feed.site_link_as_url(),
+            has_favicon: feed.site_favicon.is_some(),
+            original: feed,
+        }
+    }
 }
 
 #[tracing::instrument(
@@ -363,6 +375,129 @@ pub async fn handle_feed_favicon(
     } else {
         Ok(HttpResponse::NotFound().into())
     }
+}
+
+struct FeedEntryForTemplate {
+    original: FeedEntry,
+    created_at: String,
+    author: String,
+}
+
+impl FeedEntryForTemplate {
+    fn new(original: FeedEntry) -> Self {
+        // TODO(vincent): this is ugly, can we replace the unwrap() ?
+        let created_at = original
+            .created_at
+            .replace_nanosecond(0_000_000)
+            .unwrap()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap_or_else(|_| "unknown".to_string()); // TODO(vincent): can this really fail ?
+
+        let author = original.authors.first().cloned().unwrap_or_default();
+
+        Self {
+            original,
+            created_at,
+            author,
+        }
+    }
+}
+
+#[derive(askama::Template)]
+#[template(path = "feed_entries.html.j2")]
+struct FeedEntriesTemplate {
+    pub page: &'static str,
+    pub user_id: Option<UserId>,
+    pub flash_messages: IncomingFlashMessages,
+    pub feed: FeedForTemplate,
+    pub entries: Vec<FeedEntryForTemplate>,
+}
+
+#[derive(thiserror::Error)]
+pub enum FeedEntriesError {
+    #[error("Feed not found")]
+    NotFound,
+    #[error("Something went wrong")]
+    Unexpected(#[from] anyhow::Error),
+}
+
+impl fmt::Debug for FeedEntriesError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+#[tracing::instrument(
+    name = "Feed entries",
+    skip(pool, session, flash_messages, feed_id),
+    fields(
+        user_id = tracing::field::Empty,
+        feed_id = tracing::field::Empty,
+    )
+)]
+pub async fn handle_feed_entries(
+    pool: WebData<PgPool>,
+    session: TypedSession,
+    flash_messages: IncomingFlashMessages,
+    feed_id: WebPath<FeedId>,
+) -> Result<HttpResponse, InternalError<FeedEntriesError>> {
+    let user_id = get_user_id_or_redirect(&session)?;
+    let feed_id = feed_id.into_inner();
+
+    tracing::Span::current()
+        .record("user_id", &tracing::field::display(&user_id))
+        .record("feed_id", &tracing::field::display(&feed_id));
+
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(Into::<anyhow::Error>::into)
+        .map_err(FeedEntriesError::Unexpected)
+        .map_err(e500)?;
+
+    // 1) Get the feed data
+
+    let feed = get_feed(&mut tx, &user_id, &feed_id)
+        .await
+        .map_err(FeedEntriesError::Unexpected)
+        .map_err(feeds_page_redirect)?;
+
+    let feed = feed
+        .ok_or(FeedEntriesError::NotFound)
+        .map_err(feeds_page_redirect)?;
+
+    // 2) Get the feed entries
+
+    let raw_entries = get_feed_entries(&mut tx, &user_id, &feed_id)
+        .await
+        .map_err(FeedEntriesError::Unexpected)
+        .map_err(feeds_page_redirect)?;
+
+    let entries = raw_entries
+        .into_iter()
+        .map(FeedEntryForTemplate::new)
+        .collect();
+
+    // Render
+
+    let tpl = FeedEntriesTemplate {
+        page: FEEDS_PAGE,
+        user_id: Some(user_id),
+        flash_messages,
+        feed: FeedForTemplate::new(feed),
+        entries,
+    };
+    let tpl_rendered = tpl
+        .render()
+        .map_err(Into::<anyhow::Error>::into)
+        .map_err(FeedEntriesError::Unexpected)
+        .map_err(e500)?;
+
+    let response = HttpResponse::Ok()
+        .content_type(http::header::ContentType::html())
+        .body(tpl_rendered);
+
+    Ok(response)
 }
 
 /// This creates a [`InternalError<E>`] from `err` and a 303 See Other response.
