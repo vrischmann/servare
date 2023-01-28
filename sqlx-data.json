@@ -1,5 +1,19 @@
 {
   "db": "PostgreSQL",
+  "01d71485487dfa02a3ac4895407f6a351d50945326064e48b14daa49b8ef005d": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Bytea",
+          "Bool",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n        UPDATE feeds\n        SET site_favicon = $1, has_favicon = $2 WHERE id = $3\n        "
+  },
   "02ee76770af87c9c5e07598be6da0694f4c5637f6e5ae8257abc4e15703f8cef": {
     "describe": {
       "columns": [],
@@ -12,55 +26,17 @@
     },
     "query": "DELETE FROM sessions WHERE expires_at <= $1"
   },
-  "0a4c8f336e6d0c4c477d1c321fe301d201a2d44b22d27125d49e972404869c39": {
+  "0f9f2dfd1600c8703f60c13b0bf7d5f9fea6b561050972db97ed80a86bc1d01c": {
     "describe": {
-      "columns": [
-        {
-          "name": "id",
-          "ordinal": 0,
-          "type_info": "Uuid"
-        },
-        {
-          "name": "url",
-          "ordinal": 1,
-          "type_info": "Text"
-        },
-        {
-          "name": "title",
-          "ordinal": 2,
-          "type_info": "Text"
-        },
-        {
-          "name": "site_link",
-          "ordinal": 3,
-          "type_info": "Text"
-        },
-        {
-          "name": "description",
-          "ordinal": 4,
-          "type_info": "Text"
-        },
-        {
-          "name": "added_at",
-          "ordinal": 5,
-          "type_info": "Timestamptz"
-        }
-      ],
-      "nullable": [
-        false,
-        false,
-        false,
-        false,
-        false,
-        false
-      ],
+      "columns": [],
+      "nullable": [],
       "parameters": {
         "Left": [
           "Uuid"
         ]
       }
     },
-    "query": "\n        SELECT\n            f.id, f.url, f.title, f.site_link, f.description,\n            f.added_at\n        FROM feeds f\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1\n        "
+    "query": "UPDATE jobs SET status = 'failed' WHERE id = $1"
   },
   "11e96cfd8c2736f13ce55975ea910dd68640f6f14e38a4b3342d514804e3de27": {
     "describe": {
@@ -73,6 +49,20 @@
       }
     },
     "query": "DELETE FROM sessions WHERE id = $1"
+  },
+  "1affc8b1cf110b3bc69917ef48427e9a69d95e50da12e08649482225b01a42cc": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO users(id, email, password_hash)\n        VALUES ($1, $2, $3)\n        "
   },
   "1d5b1adad71814b98cd7608c3e4fcc7bd67174aa47e9d9180b805b5fc80b16d9": {
     "describe": {
@@ -121,21 +111,6 @@
       }
     },
     "query": "\n                INSERT INTO users(id, email, password_hash)\n                VALUES($1, $2, $3)\n                "
-  },
-  "2c00b4d7c1a99a702e8559085d37e097ed112990ef9c54bb357cb0633cd5e85c": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Uuid",
-          "Uuid",
-          "Text",
-          "Timestamptz"
-        ]
-      }
-    },
-    "query": "\n        INSERT INTO feeds(id, user_id, url, added_at)\n        VALUES ($1, $2, $3, $4)\n        "
   },
   "30f5339441ea87d0d541be812fafc1a43675d6ea51dc27648176928c4fa5b1bb": {
     "describe": {
@@ -190,6 +165,137 @@
     },
     "query": "\n        UPDATE users\n        SET password_hash = $1\n        WHERE id = $2\n        "
   },
+  "847ce7c0f0c76ff426cf855d3f7131b58c76721cc346acaed3a618657b03196c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "url",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "site_link",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "description",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "site_favicon",
+          "ordinal": 5,
+          "type_info": "Bytea"
+        },
+        {
+          "name": "has_favicon",
+          "ordinal": 6,
+          "type_info": "Bool"
+        },
+        {
+          "name": "added_at",
+          "ordinal": 7,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n            f.id, f.url, f.title, f.site_link, f.description,\n            f.site_favicon, f.has_favicon,\n            f.added_at\n        FROM feeds f\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1\n        ORDER BY f.added_at DESC\n        "
+  },
+  "95ef38d99a8c66f3f3298f49cf5c47e99bb6f484807bf0872d09a4ba59339680": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "UPDATE jobs SET attempts = attempts + 1 WHERE id = $1"
+  },
+  "9dfd2cce01b6b0c1e20b441c32887b45dec25f23bc4f0941f998be96bbf55775": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Text",
+          "Text",
+          "Timestamptz",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO feed_entries(id, feed_id, title, url, created_at, creator, summary)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        "
+  },
+  "a38014a758babb19d4e186620f3a8fbd4e497a89e685b59b0d4cb086830dbc70": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid",
+          "Text",
+          "Text",
+          "Text",
+          "Text",
+          "Timestamptz"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO feeds(id, user_id, url, title, site_link, description, added_at)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        "
+  },
+  "c175a79084064d1e765c545b0c9c4739fdc3169e863927fc957c023e9a4615c1": {
+    "describe": {
+      "columns": [
+        {
+          "name": "site_favicon",
+          "ordinal": 0,
+          "type_info": "Bytea"
+        }
+      ],
+      "nullable": [
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "\n        SELECT f.site_favicon\n        FROM feeds f\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1 AND f.id = $2\n        "
+  },
   "c6ec328bca57400093b9c7b81e2ffc23ab0bcc219404141ca26dc89e5f3ff08f": {
     "describe": {
       "columns": [],
@@ -204,6 +310,54 @@
       }
     },
     "query": "INSERT INTO sessions(id, state, created_at, expires_at) VALUES($1, $2, $3, $4)"
+  },
+  "d48b13534815000a4cda050882fae0a5780cdb9ccb0f2e5f8057b2bf1e503659": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "data",
+          "ordinal": 1,
+          "type_info": "Jsonb"
+        },
+        {
+          "name": "status: String",
+          "ordinal": 2,
+          "type_info": {
+            "Custom": {
+              "kind": {
+                "Enum": [
+                  "pending",
+                  "failed"
+                ]
+              },
+              "name": "job_status"
+            }
+          }
+        },
+        {
+          "name": "attempts",
+          "ordinal": 3,
+          "type_info": "Int4"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT id, data, status as \"status: String\", attempts\n            FROM jobs\n            WHERE status = 'pending'\n            FOR UPDATE\n            SKIP LOCKED\n            LIMIT $1\n            "
   },
   "dd9557809f59c4a4e31d2ba38e835f55e67e0ebc6486fe96a1c82312626856d5": {
     "describe": {
@@ -230,5 +384,57 @@
       }
     },
     "query": "\n        SELECT id, password_hash\n        FROM users\n        WHERE email = $1\n        "
+  },
+  "e559924057fe87472683e404ae5fb4e45e4816cce49ba999f5917fe81e779281": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid"
+        ]
+      }
+    },
+    "query": "DELETE FROM jobs WHERE id = $1"
+  },
+  "ef5265225a385b1c4e3fc6ce148120e15a10fa5c0fb4a2fa2335a473835144be": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Bytea",
+          "Jsonb"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO jobs(id, key, data) VALUES($1, $2, $3)\n        ON CONFLICT DO NOTHING\n        "
+  },
+  "f00ceb621f61575f25650ffa5f7411d1f9d3ab178fb584235cca7d84b09d89bc": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "site_link",
+          "ordinal": 1,
+          "type_info": "Text"
+        }
+      ],
+      "nullable": [
+        false,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n            SELECT id, site_link\n            FROM feeds f\n            WHERE has_favicon IS NULL\n            LIMIT $1\n            "
   }
 }
