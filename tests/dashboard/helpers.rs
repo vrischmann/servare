@@ -175,6 +175,7 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
     let (notify_shutdown_sender, _) = tokio::sync::broadcast::channel(1);
     let shutdown = Shutdown::new(notify_shutdown_sender.subscribe());
 
+    #[allow(clippy::let_underscore_future)]
     let _ = tokio::spawn(app.run(shutdown));
 
     let http_client = reqwest::Client::builder()
