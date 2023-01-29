@@ -6,6 +6,7 @@ use actix_web::HttpResponse;
 use anyhow::anyhow;
 use std::convert::From;
 use std::fmt;
+use tracing::{event, Level};
 
 /// Creates a [`InternalError<T>`] with the code 500 Internal Server Error.
 ///
@@ -51,10 +52,14 @@ where
         .map_err(e500)?;
 
     if let Some(user_id) = user_id {
+        event!(Level::TRACE, %user_id, "found user");
+
         Ok(user_id)
     } else {
         let response = see_other("/login");
         let err = anyhow!("The user has not logged in");
+
+        event!(Level::TRACE, "found no user");
 
         Err(InternalError::from_response(err.into(), response))
     }
