@@ -39,7 +39,7 @@ pub fn see_other(location: &str) -> HttpResponse {
 /// # Errors
 ///
 /// Actual errors are converted to a 500 Internal Server Error using the [`e500`] function.
-#[tracing::instrument(name = "Get user id or redirect", skip(session))]
+#[tracing::instrument(name = "Get user id or redirect", level = "TRACE",  skip(session))]
 pub fn get_user_id_or_redirect<E>(session: &TypedSession) -> Result<UserId, InternalError<E>>
 where
     E: From<anyhow::Error> + fmt::Display + fmt::Debug + 'static,
