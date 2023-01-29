@@ -1,5 +1,5 @@
 use crate::configuration::JobConfig;
-use crate::feed::{find_favicon, Feed, FeedEntryId, FeedId};
+use crate::feed::{find_favicon, FeedId, ParsedFeed};
 use crate::fetch_bytes;
 use crate::shutdown::Shutdown;
 use blake2::{Blake2b512, Digest};
@@ -235,10 +235,12 @@ impl Job {
 
         match self {
             Job::FetchFavicon(data) => {
-                hasher.update(&data.feed_id);
+                let bytes: [u8; 8] = data.feed_id.into();
+                hasher.update(bytes);
             }
             Job::RefreshFeed(data) => {
-                hasher.update(&data.feed_id);
+                let bytes: [u8; 8] = data.feed_id.into();
+                hasher.update(bytes);
             }
         }
 
@@ -311,7 +313,10 @@ async fn run_refresh_feed_job(
             feed_rs::parser::parse(&response_bytes[..]).map_err(Into::<anyhow::Error>::into)?;
         let raw_entries = std::mem::take(&mut raw_feed.entries);
 
-        (Feed::from_raw_feed(&data.feed_url, raw_feed), raw_entries)
+        (
+            ParsedFeed::from_raw_feed(&data.feed_url, raw_feed),
+            raw_entries,
+        )
     };
 
     event!(
@@ -399,7 +404,7 @@ async fn add_fetch_favicons_jobs(pool: &PgPool, remaining: &mut usize) -> anyhow
     let mut tx = pool.begin().await?;
 
     for record in records {
-        let feed_id = FeedId::from(record.id);
+        let feed_id = FeedId(record.id);
 
         add_fetch_favicon_job(&mut tx, feed_id, &record.site_link).await?;
     }
@@ -496,7 +501,6 @@ async fn insert_feed_entry<'e, E>(
 where
     E: sqlx::PgExecutor<'e>,
 {
-    let id = FeedEntryId::default();
     let url = None;
     // TODO(vincent): choose the correct one
     // let url = entry
@@ -523,10 +527,9 @@ where
 
     sqlx::query!(
         r#"
-        INSERT INTO feed_entries(id, feed_id, title, url, created_at, authors, summary)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO feed_entries(feed_id, title, url, created_at, authors, summary)
+        VALUES ($1, $2, $3, $4, $5, $6)
         "#,
-        &id.0,
         &feed_id.0,
         &title,
         url.as_ref().map(Url::to_string),
@@ -590,7 +593,7 @@ mod tests {
         // Run the job
 
         let data = FetchFaviconJobData {
-            feed_id: feed_id.clone(),
+            feed_id,
             site_link: mock_url,
         };
 
