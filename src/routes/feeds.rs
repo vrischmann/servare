@@ -459,12 +459,17 @@ pub async fn handle_feed_entries(
         .record("user_id", &tracing::field::display(&user_id))
         .record("feed_id", &tracing::field::display(&feed_id));
 
-    let mut tx = pool
-        .begin()
-        .await
-        .map_err(Into::<anyhow::Error>::into)
-        .map_err(FeedEntriesError::Unexpected)
-        .map_err(e500)?;
+    // NOTE(vincent): do we need a transaction here since we don't write anything ?
+    let mut tx = {
+        let tx_begin_span = tracing::span!(Level::TRACE, "tx_begin");
+        let _guard = tx_begin_span.enter();
+
+        pool.begin()
+            .await
+            .map_err(Into::<anyhow::Error>::into)
+            .map_err(FeedEntriesError::Unexpected)
+            .map_err(e500)?
+    };
 
     // 1) Get the feed data
 
