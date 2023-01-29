@@ -25,27 +25,31 @@ async fn feeds_should_be_displayed() {
     assert_is_redirect_to(&login_response, "/");
 
     // Setup a mock server that:
-    // * responds with a test XML feed on /feed1
-    // * responds with a basic HTML page containing a link to a RSS feed
+    // * responds with a test XML feed on /xml_feed1 and /xml_feed2
+    // * responds with a basic HTML page containing a link to /xml_feed2
 
     let mock_server = MockServer::start().await;
     let mock_uri = mock_server.uri();
     let mock_url = Url::parse(&mock_uri).unwrap();
 
-    Mock::given(path("/feed1"))
-        .respond_with(ResponseTemplate::new(200).set_body_raw(
-            TestData::get("tailscale_rss_feed.xml").unwrap().data,
-            "application/xml",
-        ))
-        .expect(2)
-        .mount(&mock_server)
-        .await;
+    let response = ResponseTemplate::new(200).set_body_raw(
+        TestData::get("tailscale_rss_feed.xml").unwrap().data,
+        "application/xml",
+    );
+
+    for v in ["/xml_feed1", "/xml_feed2"] {
+        Mock::given(path(v))
+            .respond_with(response.clone())
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+    }
 
     const HTML: &str = r#"
-        <link type="application/rss+xml" href="/feed1">
+        <link type="application/rss+xml" href="/xml_feed2">
         "#;
 
-    Mock::given(path("/feed2"))
+    Mock::given(path("/html_feed"))
         .respond_with(ResponseTemplate::new(200).set_body_raw(HTML, "text/html"))
         .expect(1)
         .mount(&mock_server)
@@ -53,8 +57,8 @@ async fn feeds_should_be_displayed() {
 
     // Create two feeds
 
-    let feed1_url = mock_url.join("/feed1").unwrap();
-    let feed2_url = mock_url.join("/feed2").unwrap();
+    let feed1_url = mock_url.join("/xml_feed1").unwrap();
+    let feed2_url = mock_url.join("/html_feed").unwrap();
 
     let urls = vec![feed1_url, feed2_url];
     for url in urls {
