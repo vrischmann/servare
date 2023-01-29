@@ -1,4 +1,5 @@
 use crate::configuration::JobConfig;
+use crate::domain::UserId;
 use crate::feed::{find_favicon, FeedId, ParsedFeed};
 use crate::fetch_bytes;
 use crate::shutdown::Shutdown;
@@ -254,6 +255,7 @@ impl Job {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct RefreshFeedJobData {
+    user_id: UserId,
     feed_id: FeedId,
     feed_url: Url,
 }
@@ -275,6 +277,7 @@ struct RefreshFeedJobData {
 )]
 pub async fn add_refresh_feed_job<'e, E>(
     executor: E,
+    user_id: &UserId,
     feed_id: FeedId,
     feed_url: Url,
 ) -> anyhow::Result<()>
@@ -283,7 +286,11 @@ where
 {
     add_job(
         executor,
-        Job::RefreshFeed(RefreshFeedJobData { feed_id, feed_url }),
+        Job::RefreshFeed(RefreshFeedJobData {
+            user_id: user_id.clone(),
+            feed_id,
+            feed_url,
+        }),
     )
     .await?;
 
@@ -307,7 +314,7 @@ async fn run_refresh_feed_job(
         .await
         .map_err(Into::<anyhow::Error>::into)?;
 
-    // Try to parse as a feed
+    // 1) Try to parse as a feed
     let (feed, feed_entries) = {
         let mut raw_feed =
             feed_rs::parser::parse(&response_bytes[..]).map_err(Into::<anyhow::Error>::into)?;
@@ -326,11 +333,21 @@ async fn run_refresh_feed_job(
         "found a raw feed",
     );
 
-    // Insert all items
+    // 2) Process all entries
+    //
+    // For every entry we check if it already exists in the database; to do that we use the
+    // `external_id` field which maps to the `id` field of the [`feed_rs::model::Entry`] struct.
+    // If the entry doesn't exist we insert it.
 
     let mut tx = pool.begin().await?;
 
     for entry in feed_entries {
+        let entry = ParsedFeedEntry::from_raw_feed_entry(entry);
+
+        if feed_entry_with_external_id_exists(&mut tx, &data.user_id, &entry.external_id).await? {
+            continue;
+        }
+
         insert_feed_entry(&mut tx, &data.feed_id, entry).await?;
     }
 
@@ -488,6 +505,53 @@ async fn set_favicon(pool: &PgPool, feed_id: &FeedId, data: Option<&[u8]>) -> an
     Ok(())
 }
 
+/// Holds feed entry data parsed from a [`feed_rs::model::Entry`].
+///
+/// This means this struct should _not_ be used to represent data from the database.
+struct ParsedFeedEntry {
+    external_id: String,
+    url: Option<Url>,
+    title: String,
+    summary: String,
+    authors: Vec<String>,
+}
+
+impl ParsedFeedEntry {
+    fn from_raw_feed_entry(entry: RawFeedEntry) -> Self {
+        let url = None;
+        // TODO(vincent): choose the correct one
+        // let url = entry
+        //     .links
+        //     .into_iter()
+        //     .map(|v| Url::parse(&v.href))
+        //     .last()
+        //     .ok();
+        let title = entry.title.map(|v| v.content).unwrap_or_default();
+        let summary = entry.summary.map(|v| v.content).unwrap_or_default();
+
+        // TODO(vincent): see if there's anything better to do ?
+        let authors: Vec<String> = entry
+            .authors
+            .into_iter()
+            .map(|person| {
+                if let Some(ref email) = person.email {
+                    email.clone()
+                } else {
+                    person.name
+                }
+            })
+            .collect();
+
+        Self {
+            external_id: entry.id,
+            url,
+            title,
+            summary,
+            authors,
+        }
+    }
+}
+
 /// Create a new feed entry in the database for this `user_id`.
 #[tracing::instrument(
     name = "Insert feed entry",
@@ -500,51 +564,57 @@ async fn set_favicon(pool: &PgPool, feed_id: &FeedId, data: Option<&[u8]>) -> an
 async fn insert_feed_entry<'e, E>(
     executor: E,
     feed_id: &FeedId,
-    entry: RawFeedEntry,
+    entry: ParsedFeedEntry,
 ) -> Result<(), sqlx::Error>
 where
     E: sqlx::PgExecutor<'e>,
 {
-    let url = None;
-    // TODO(vincent): choose the correct one
-    // let url = entry
-    //     .links
-    //     .into_iter()
-    //     .map(|v| Url::parse(&v.href))
-    //     .last()
-    //     .ok();
-    let title = entry.title.map(|v| v.content).unwrap_or_default();
-    let summary = entry.summary.map(|v| v.content).unwrap_or_default();
-
-    // TODO(vincent): see if there's anything better to do ?
-    let authors: Vec<String> = entry
-        .authors
-        .into_iter()
-        .map(|person| {
-            if let Some(ref email) = person.email {
-                email.clone()
-            } else {
-                person.name
-            }
-        })
-        .collect();
-
     sqlx::query!(
         r#"
-        INSERT INTO feed_entries(feed_id, title, url, created_at, authors, summary)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO feed_entries(feed_id, external_id, title, url, created_at, authors, summary)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         "#,
         &feed_id.0,
-        &title,
-        url.as_ref().map(Url::to_string),
+        &entry.external_id,
+        &entry.title,
+        entry.url.as_ref().map(Url::to_string),
         time::OffsetDateTime::now_utc(), // TODO(vincent): use the correct time
-        &authors,                        // TODO(vincent): rename creator to author ?
-        &summary,
+        &entry.authors,                  // TODO(vincent): rename creator to author ?
+        &entry.summary,
     )
     .execute(executor)
     .await?;
 
     Ok(())
+}
+
+/// Check if a feed entry belonging to `user_id` with the given `external_id` already exists.
+///
+/// # Errors
+///
+/// This function will return an error if there's a SQL error.
+async fn feed_entry_with_external_id_exists<'e, E>(
+    executor: E,
+    user_id: &UserId,
+    external_id: &str,
+) -> Result<bool, sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    let record = sqlx::query!(
+        r#"
+        SELECT fe.id FROM feed_entries fe
+        INNER JOIN feeds f ON f.id = fe.feed_id
+        INNER JOIN users u ON f.user_id = u.id
+        WHERE u.id = $1 AND fe.external_id = $2
+        "#,
+        &user_id.0,
+        external_id,
+    )
+    .fetch_optional(executor)
+    .await?;
+
+    Ok(record.is_some())
 }
 
 #[cfg(test)]

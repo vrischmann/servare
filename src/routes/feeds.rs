@@ -327,7 +327,7 @@ pub async fn handle_feeds_refresh(
         .map_err(feeds_page_redirect)?;
 
     for feed in feeds {
-        add_refresh_feed_job(pool.as_ref(), feed.id, feed.url)
+        add_refresh_feed_job(pool.as_ref(), &user_id, feed.id, feed.url)
             .await
             .map_err(FeedRefreshError::Unexpected)
             .map_err(feeds_page_redirect)?;

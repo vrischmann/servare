@@ -52,6 +52,9 @@ pub enum ParseError {
     Unexpected(#[from] anyhow::Error),
 }
 
+/// Holds feed data parsed from a [`feed_rs::model::Feed`].
+///
+/// This means this struct should _not_ be used to represent data from the database.
 pub struct ParsedFeed {
     pub url: Url,
     pub title: String,
