@@ -5,7 +5,7 @@ use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_log::LogTracer;
 use tracing_subscriber::filter::{EnvFilter, LevelFilter};
 use tracing_subscriber::fmt::MakeWriter;
-use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::layer::{Layer, SubscriberExt};
 use tracing_subscriber::Registry;
 
 pub struct Configuration {
@@ -20,13 +20,19 @@ pub fn get_subscriber<Sink>(config: Configuration, sink: Sink) -> Box<dyn Subscr
 where
     Sink: for<'a> MakeWriter<'a> + Sync + Send + 'static,
 {
-    let env_filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
-        .from_env_lossy();
+    let logging_layer = {
+        let env_filter = EnvFilter::builder()
+            .with_default_directive(LevelFilter::INFO.into())
+            .from_env_lossy();
 
-    let formatting_layer = BunyanFormattingLayer::new(config.name.clone(), sink)
-        .skip_fields(vec!["file".to_string(), "line".to_string(), "target".to_string()].into_iter())
-        .expect("unable to build the bunyan formatting layer");
+        let formatting_layer = BunyanFormattingLayer::new(config.name.clone(), sink)
+            .skip_fields(
+                vec!["file".to_string(), "line".to_string(), "target".to_string()].into_iter(),
+            )
+            .expect("unable to build the bunyan formatting layer");
+
+        formatting_layer.with_filter(env_filter)
+    };
 
     match config.jaeger_config {
         Some(jaeger_config) => {
@@ -39,17 +45,15 @@ where
 
             Box::new(
                 Registry::default()
-                    .with(env_filter)
                     .with(JsonStorageLayer)
-                    .with(formatting_layer)
+                    .with(logging_layer)
                     .with(otel_layer),
             )
         }
         None => Box::new(
             Registry::default()
-                .with(env_filter)
                 .with(JsonStorageLayer)
-                .with(formatting_layer),
+                .with(logging_layer),
         ),
     }
 }
