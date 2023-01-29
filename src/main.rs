@@ -34,13 +34,12 @@ async fn shutdown_signal() {
 
 async fn run_serve(config: Config, _matches: &clap::ArgMatches) -> anyhow::Result<()> {
     // Setup
-    let subscriber = telemetry::get_subscriber(
-        telemetry::Configuration {
-            jaeger_config: config.jaeger,
-            name: "servare".to_string(),
-        },
-        std::io::stdout,
-    );
+
+    let subscriber = telemetry::SubscriberBuilder::new("servare")
+        .with_logging_targets(config.tracing.targets.logging.into())
+        .with_jaeger_endpoint(config.jaeger.map(|v| v.endpoint()))
+        .with_jaeger_targets(config.tracing.targets.jaeger.map(|v| v.into()))
+        .build(std::io::stdout);
     telemetry::init_global_default(subscriber);
 
     //

@@ -30,3 +30,14 @@ timeout_milliseconds = 10000
 [jaeger]
 host = "127.0.0.1"
 port = 6831
+
+[tracing.targets]
+logging = [
+    "sqlx=error",
+    "servare=trace",
+    "info",
+]
+jaeger = [
+    "sqlx=error",
+    "info",
+]
