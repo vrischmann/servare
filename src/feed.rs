@@ -223,7 +223,7 @@ where
     Ok(feeds)
 }
 
-#[tracing::instrument(name = "Get feeds", skip(executor))]
+#[tracing::instrument(name = "Get feed", skip(executor))]
 pub async fn get_feed<'e, E>(
     executor: E,
     user_id: &UserId,
