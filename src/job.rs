@@ -1,8 +1,9 @@
 use crate::configuration::JobConfig;
-use crate::feed::{find_favicon, insert_feed_entry, Feed, FeedEntry, FeedId};
+use crate::feed::{find_favicon, Feed, FeedEntryId, FeedId};
 use crate::fetch_bytes;
 use crate::shutdown::Shutdown;
 use blake2::{Blake2b512, Digest};
+use feed_rs::model::Entry as RawFeedEntry;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
@@ -310,13 +311,7 @@ async fn run_refresh_feed_job(
             feed_rs::parser::parse(&response_bytes[..]).map_err(Into::<anyhow::Error>::into)?;
         let raw_entries = std::mem::take(&mut raw_feed.entries);
 
-        (
-            Feed::from_raw_feed(&data.feed_url, raw_feed),
-            raw_entries
-                .into_iter()
-                .map(FeedEntry::from_raw_feed_entry)
-                .collect::<Vec<FeedEntry>>(),
-        )
+        (Feed::from_raw_feed(&data.feed_url, raw_feed), raw_entries)
     };
 
     event!(
@@ -331,7 +326,7 @@ async fn run_refresh_feed_job(
     let mut tx = pool.begin().await?;
 
     for entry in feed_entries {
-        insert_feed_entry(&mut tx, &data.feed_id, &entry).await?;
+        insert_feed_entry(&mut tx, &data.feed_id, entry).await?;
     }
 
     tx.commit().await?;
@@ -479,6 +474,67 @@ async fn set_favicon(pool: &PgPool, feed_id: &FeedId, data: Option<&[u8]>) -> an
         &feed_id.0,
     )
     .execute(pool)
+    .await?;
+
+    Ok(())
+}
+
+/// Create a new feed entry in the database for this `user_id`.
+#[tracing::instrument(
+    name = "Insert feed entry",
+    skip(executor, entry),
+    fields(
+        feed_id = %feed_id,
+        url = tracing::field::Empty,
+    )
+)]
+async fn insert_feed_entry<'e, E>(
+    executor: E,
+    feed_id: &FeedId,
+    entry: RawFeedEntry,
+) -> Result<(), sqlx::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    let id = FeedEntryId::default();
+    let url = None;
+    // TODO(vincent): choose the correct one
+    // let url = entry
+    //     .links
+    //     .into_iter()
+    //     .map(|v| Url::parse(&v.href))
+    //     .last()
+    //     .ok();
+    let title = entry.title.map(|v| v.content).unwrap_or_default();
+    let summary = entry.summary.map(|v| v.content).unwrap_or_default();
+
+    // TODO(vincent): see if there's anything better to do ?
+    let authors: Vec<String> = entry
+        .authors
+        .into_iter()
+        .map(|person| {
+            if let Some(ref email) = person.email {
+                email.clone()
+            } else {
+                person.name
+            }
+        })
+        .collect();
+
+    sqlx::query!(
+        r#"
+        INSERT INTO feed_entries(id, feed_id, title, url, created_at, authors, summary)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        "#,
+        &id.0,
+        &feed_id.0,
+        &title,
+        url.as_ref().map(Url::to_string),
+        time::OffsetDateTime::now_utc(), // TODO(vincent): use the correct time
+        &authors,                        // TODO(vincent): rename creator to author ?
+        &summary,
+    )
+    .execute(executor)
     .await?;
 
     Ok(())

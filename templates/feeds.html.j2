@@ -6,12 +6,12 @@
 <div class="content feed-listing">
 	{% for feed in feeds %}
 	<article class="feed-card">
-		<h2 class="title">{{ feed.original.title }}</h2>
+		<h2 class="title"><a href="/feeds/{{ feed.original.id }}/entries" class="title-link">{{ feed.original.title }}</a></h2>
 		{% if let Some(site_link) = feed.site_link %}
 			<div class="site-link">
 				{%- let domain = site_link.domain().unwrap_or("unknown") -%}
 				{%- if feed.has_favicon -%}
-				<img src="/feeds/{{ feed.original.id.to_string() }}/favicon" width="32" height="32" />
+				<img src="/feeds/{{ feed.original.id }}/favicon" width="32" height="32" />
 				<a href="{{ site_link }}" class="next-to-favicon" target="_blank" rel="noopener">{{ domain }}</a>
 				{%- else -%}
 				<a href="{{ site_link }}" target="_blank" rel="noopener">{{ domain }}</a>
