@@ -2,6 +2,7 @@ use crate::domain::UserEmail;
 use crate::tem;
 use secrecy::Secret;
 use std::time::Duration as StdDuration;
+use tracing_subscriber::filter;
 
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct ApplicationConfig {
@@ -82,6 +83,27 @@ impl JaegerConfig {
     }
 }
 
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+pub struct TracingTargets(Vec<String>);
+
+impl From<TracingTargets> for filter::Targets {
+    fn from(targets: TracingTargets) -> Self {
+        let v = targets.0.join(",");
+        v.parse().expect("unable to parse the targets string")
+    }
+}
+
+#[derive(Clone, Debug, Default, serde::Deserialize)]
+pub struct AllTracingTargets {
+    pub logging: TracingTargets,
+    pub jaeger: Option<TracingTargets>,
+}
+
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct TracingConfig {
+    pub targets: AllTracingTargets,
+}
+
 #[derive(Clone, Debug, serde::Deserialize)]
 pub struct Config {
     pub application: ApplicationConfig,
@@ -90,6 +112,7 @@ pub struct Config {
     pub database: DatabaseConfig,
     pub tem: TEMConfig,
     pub jaeger: Option<JaegerConfig>,
+    pub tracing: TracingConfig,
 }
 
 pub fn get_configuration() -> Result<Config, config::ConfigError> {

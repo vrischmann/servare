@@ -1,67 +1,91 @@
-use crate::configuration::JaegerConfig;
 use tracing::subscriber::set_global_default;
 use tracing::Subscriber;
 use tracing_bunyan_formatter::{BunyanFormattingLayer, JsonStorageLayer};
 use tracing_log::LogTracer;
-use tracing_subscriber::filter::{EnvFilter};
+use tracing_subscriber::filter;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::{Layer, SubscriberExt};
 use tracing_subscriber::Registry;
 
-pub struct Configuration {
-    pub jaeger_config: Option<JaegerConfig>,
-    pub name: String,
+pub struct SubscriberBuilder {
+    name: String,
+    logging_targets: filter::Targets,
+    jaeger_endpoint: Option<String>,
+    jaeger_targets: filter::Targets,
 }
 
-/// Creates a [`tracing::Subscriber`] configured to format logs with [`Bunyan`]
-///
-/// [`Bunyan`]: https://docs.rs/tracing-bunyan-formatter/latest/tracing_bunyan_formatter/
-pub fn get_subscriber<Sink>(config: Configuration, sink: Sink) -> Box<dyn Subscriber + Sync + Send>
-where
-    Sink: for<'a> MakeWriter<'a> + Sync + Send + 'static,
-{
-    let logging_layer = {
-        let env_filter = EnvFilter::builder()
-            .with_env_var("TRACING_LOGGING_ENV_FILTER")
-            .from_env_lossy();
+impl SubscriberBuilder {
+    pub fn new<T>(name: T) -> Self
+    where
+        T: AsRef<str>,
+    {
+        Self {
+            name: name.as_ref().to_string(),
+            jaeger_endpoint: None,
+            logging_targets: filter::Targets::default(),
+            jaeger_targets: filter::Targets::default(),
+        }
+    }
 
-        let formatting_layer = BunyanFormattingLayer::new(config.name.clone(), sink)
-            .skip_fields(
-                vec!["file".to_string(), "line".to_string(), "target".to_string()].into_iter(),
-            )
-            .expect("unable to build the bunyan formatting layer");
+    pub fn with_logging_targets(mut self, targets: filter::Targets) -> Self {
+        self.logging_targets = targets;
+        self
+    }
 
-        formatting_layer.with_filter(env_filter)
-    };
+    pub fn with_jaeger_endpoint(mut self, endpoint: Option<String>) -> Self {
+        self.jaeger_endpoint = endpoint;
+        self
+    }
 
-    match config.jaeger_config {
-        Some(jaeger_config) => {
-            let otel_tracer = opentelemetry_jaeger::new_agent_pipeline()
-                .with_endpoint(jaeger_config.endpoint())
-                .with_service_name(config.name)
-                .install_simple()
-                .expect("unable to get otel jaeger agent pipeline");
+    pub fn with_jaeger_targets(mut self, targets: Option<filter::Targets>) -> Self {
+        if let Some(targets) = targets {
+            self.jaeger_targets = targets;
+        }
+        self
+    }
 
-            let env_filter = EnvFilter::builder()
-                .with_env_var("TRACING_JAEGER_ENV_FILTER")
-                .from_env_lossy();
+    /// Creates a [`tracing::Subscriber`] configured to format logs with [`Bunyan`]
+    ///
+    /// [`Bunyan`]: https://docs.rs/tracing-bunyan-formatter/latest/tracing_bunyan_formatter/
+    pub fn build<Sink>(self, sink: Sink) -> Box<dyn Subscriber + Sync + Send>
+    where
+        Sink: for<'a> MakeWriter<'a> + Sync + Send + 'static,
+    {
+        let logging_layer = {
+            let formatting_layer = BunyanFormattingLayer::new(self.name.clone(), sink)
+                .skip_fields(
+                    vec!["file".to_string(), "line".to_string(), "target".to_string()].into_iter(),
+                )
+                .expect("unable to build the bunyan formatting layer");
 
-            let otel_layer = tracing_opentelemetry::layer()
-                .with_tracer(otel_tracer)
-                .with_filter(env_filter);
+            formatting_layer.with_filter(self.logging_targets)
+        };
 
-            Box::new(
+        match self.jaeger_endpoint {
+            Some(endpoint) => {
+                let otel_tracer = opentelemetry_jaeger::new_agent_pipeline()
+                    .with_endpoint(endpoint)
+                    .with_service_name(self.name)
+                    .install_simple()
+                    .expect("unable to get otel jaeger agent pipeline");
+
+                let otel_layer = tracing_opentelemetry::layer()
+                    .with_tracer(otel_tracer)
+                    .with_filter(self.jaeger_targets);
+
+                Box::new(
+                    Registry::default()
+                        .with(JsonStorageLayer)
+                        .with(logging_layer)
+                        .with(otel_layer),
+                )
+            }
+            None => Box::new(
                 Registry::default()
                     .with(JsonStorageLayer)
-                    .with(logging_layer)
-                    .with(otel_layer),
-            )
+                    .with(logging_layer),
+            ),
         }
-        None => Box::new(
-            Registry::default()
-                .with(JsonStorageLayer)
-                .with(logging_layer),
-        ),
     }
 }
 

@@ -11,26 +11,40 @@ use servare::startup::Application;
 use servare::startup::{get_connection_pool, get_tem_client};
 use servare::{telemetry, tem};
 use sqlx::PgPool;
+use tracing::Level;
+use tracing_subscriber::filter;
 use uuid::Uuid;
 use wiremock::MockServer;
 
 static TRACING: Lazy<()> = Lazy::new(|| {
-    let subscriber_name = "test".into();
-
     std::env::set_var("RUST_LOG", "sqlx=error,info");
+    let has_test_log = std::env::var("TEST_LOG").is_ok();
 
-    let config = telemetry::Configuration {
-        jaeger_config: None,
-        name: subscriber_name,
+    let targets = {
+        let tmp = filter::Targets::new().with_targets(vec![
+            ("html5ever", Level::INFO),
+            ("hyper", Level::INFO),
+            ("cookie_store", Level::INFO),
+            ("reqwest", Level::INFO),
+            ("wiremock", Level::INFO),
+        ]);
+
+        if has_test_log {
+            tmp.with_default(Level::DEBUG)
+        } else {
+            tmp.with_default(Level::INFO)
+        }
     };
 
-    if std::env::var("TEST_LOG").is_ok() {
-        let subscriber = telemetry::get_subscriber(config, std::io::stdout);
-        telemetry::init_global_default(subscriber);
+    let subscriber_builder =
+        telemetry::SubscriberBuilder::new("test").with_logging_targets(targets);
+
+    let subscriber = if has_test_log {
+        subscriber_builder.build(std::io::stdout)
     } else {
-        let subscriber = telemetry::get_subscriber(config, std::io::sink);
-        telemetry::init_global_default(subscriber);
-    }
+        subscriber_builder.build(std::io::sink)
+    };
+    telemetry::init_global_default(subscriber);
 });
 
 pub struct TestUser {
