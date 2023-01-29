@@ -382,6 +382,36 @@ where
     Ok(entries)
 }
 
+/// Check if a feed with the given `url` already exists.
+///
+/// # Errors
+///
+/// This function will return an error if there's a SQL error.
+pub async fn feed_with_url_exists<'e, E>(
+    executor: E,
+    user_id: &UserId,
+    url: &Url,
+) -> Result<bool, anyhow::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    let record = sqlx::query!(
+        r#"
+        SELECT f.id FROM feeds f
+        INNER JOIN users u ON f.user_id = u.id
+        WHERE u.id = $1 AND f.url = $2
+        "#,
+        &user_id.0,
+        url.to_string(),
+    )
+    .fetch_optional(executor)
+    .await
+    .map_err(Into::<anyhow::Error>::into)
+    .context("unable to find the feed")?;
+
+    Ok(record.is_some())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

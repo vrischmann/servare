@@ -1,7 +1,6 @@
 use crate::domain::UserId;
-use crate::feed::{
-    find_feed, get_all_feeds, get_feed, get_feed_entries, get_feed_favicon, insert_feed,
-};
+use crate::feed::{feed_with_url_exists, find_feed, insert_feed};
+use crate::feed::{get_all_feeds, get_feed, get_feed_entries, get_feed_favicon};
 use crate::feed::{Feed, FeedEntry, FeedId, FindError, FoundFeed, ParseError};
 use crate::job::{add_fetch_favicon_job, add_refresh_feed_job};
 use crate::routes::FEEDS_PAGE;
@@ -110,6 +109,8 @@ pub enum FeedAddError {
     URLNotAValidRSSFeed(#[from] ParseError),
     #[error("URL is inaccessible")]
     URLInaccessible(#[source] reqwest::Error),
+    #[error("Feed already exists")]
+    FeedAlreadyExists,
     #[error("Something went wrong")]
     Unexpected(#[from] anyhow::Error),
 }
@@ -212,7 +213,17 @@ pub async fn handle_feeds_add(
         "Fetched feed",
     );
 
-    // 3) Insert the feed
+    // 3) Check if the feed already exists
+
+    let feed_exists = feed_with_url_exists(pool.as_ref(), &user_id, &feed.url)
+        .await
+        .map_err(FeedAddError::Unexpected)
+        .map_err(feeds_page_redirect)?;
+    if feed_exists {
+        return Err(feeds_page_redirect(FeedAddError::FeedAlreadyExists));
+    }
+
+    // 4) Insert the feed
 
     insert_feed(&pool, &user_id, &feed)
         .await
@@ -221,7 +232,7 @@ pub async fn handle_feeds_add(
         .map_err(Into::<FeedAddError>::into)
         .map_err(feeds_page_redirect)?;
 
-    // 4) Add needed background jobs
+    // 5) Add needed background jobs
     //
     // Note we don't fail if this returns an error, it's only a backgroun job
     if let Err(err) = add_fetch_favicon_job(pool.as_ref(), feed.id, &feed.site_link).await {
