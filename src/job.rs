@@ -136,7 +136,7 @@ impl JobRunner {
         Ok(())
     }
 
-    #[tracing::instrument(name = "Manage jobs", skip(self))]
+    #[tracing::instrument(name = "Manage jobs", level = "TRACE", skip(self))]
     async fn manage_jobs(&mut self) -> anyhow::Result<()> {
         let mut remaining = MANAGE_JOBS_LIMIT;
 
@@ -145,7 +145,7 @@ impl JobRunner {
         Ok(())
     }
 
-    #[tracing::instrument(name = "Run jobs", skip(self))]
+    #[tracing::instrument(name = "Run jobs", level = "TRACE", skip(self))]
     async fn run_jobs(&mut self) -> anyhow::Result<()> {
         let mut tx = self.pool.begin().await?;
 
@@ -387,7 +387,11 @@ where
 /// # Errors
 ///
 /// This function will return an error if there was an error adding a job to the queue
-#[tracing::instrument(name = "Add fetch favicons jobs", skip(pool, remaining))]
+#[tracing::instrument(
+    name = "Add fetch favicons jobs",
+    level = "TRACE",
+    skip(pool, remaining)
+)]
 async fn add_fetch_favicons_jobs(pool: &PgPool, remaining: &mut usize) -> anyhow::Result<()> {
     let records = sqlx::query!(
         r#"
