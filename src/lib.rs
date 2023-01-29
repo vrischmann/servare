@@ -67,3 +67,32 @@ macro_rules! typed_uuid {
         }
     };
 }
+
+#[macro_export]
+macro_rules! impl_typed_id {
+    ($t:ident) => {
+        impl Default for $t {
+            fn default() -> Self {
+                Self(i64::default())
+            }
+        }
+
+        impl AsRef<i64> for $t {
+            fn as_ref(&self) -> &i64 {
+                &self.0
+            }
+        }
+
+        impl std::fmt::Display for $t {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+
+        impl From<$t> for [u8; 8] {
+            fn from(id: $t) -> Self {
+                id.0.to_le_bytes()
+            }
+        }
+    };
+}

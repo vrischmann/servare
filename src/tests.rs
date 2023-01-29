@@ -1,6 +1,6 @@
 use crate::configuration::get_configuration;
 use crate::domain::{UserEmail, UserId};
-use crate::feed::{insert_feed, Feed, FeedId};
+use crate::feed::{insert_feed, FeedId, ParsedFeed};
 use crate::startup::get_connection_pool;
 use fake::faker::internet::en::{Password as FakerPassword, SafeEmail as FakerSafeEmail};
 use fake::faker::lorem::en::{Paragraph as FakerParagraph, Sentence as FakerSentence};
@@ -69,17 +69,14 @@ pub async fn create_feed(pool: &PgPool, user_id: &UserId, url: &Url, site_link: 
     let title = FakerSentence(4..15).fake();
     let description = FakerParagraph(1..40).fake();
 
-    let feed = Feed {
-        id: FeedId::default(),
+    let feed = ParsedFeed {
         url: url.clone(),
         title,
         site_link: site_link.to_string(),
         description,
-        site_favicon: None,
-        added_at: time::OffsetDateTime::now_utc(),
     };
 
-    insert_feed(pool, user_id, &feed).await.unwrap();
+    let feed_id = insert_feed(pool, user_id, &feed).await.unwrap();
 
-    feed.id
+    feed_id
 }

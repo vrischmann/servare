@@ -1,21 +1,20 @@
 use crate::domain::UserId;
 use crate::html::{fetch_document, find_link_in_document, FindLinkCriteria};
-use crate::typed_uuid;
+use crate::impl_typed_id;
 use anyhow::Context;
 use feed_rs::model::Feed as RawFeed;
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use tracing::{event, Level};
 use url::Url;
-use uuid::Uuid;
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
-pub struct FeedId(pub Uuid);
-typed_uuid!(FeedId);
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+pub struct FeedId(pub i64);
+impl_typed_id!(FeedId);
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
-pub struct FeedEntryId(pub Uuid);
-typed_uuid!(FeedEntryId);
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+pub struct FeedEntryId(pub i64);
+impl_typed_id!(FeedEntryId);
 
 /// Represents a feed entry.
 #[derive(Debug)]
@@ -41,13 +40,26 @@ pub struct Feed {
     pub added_at: time::OffsetDateTime,
 }
 
+impl Feed {
+    pub fn site_link_as_url(&self) -> Option<Url> {
+        Url::parse(&self.site_link).ok()
+    }
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
     #[error(transparent)]
     Unexpected(#[from] anyhow::Error),
 }
 
-impl Feed {
+pub struct ParsedFeed {
+    pub url: Url,
+    pub title: String,
+    pub site_link: String, // TODO(vincent): should this be a Url ?
+    pub description: String,
+}
+
+impl ParsedFeed {
     pub fn parse(url: &Url, data: &[u8]) -> Result<Self, ParseError> {
         let raw_feed = feed_rs::parser::parse(data).map_err(Into::<anyhow::Error>::into)?;
 
@@ -63,19 +75,12 @@ impl Feed {
             .collect::<Vec<String>>()
             .remove(0);
 
-        Feed {
-            id: FeedId::default(),
+        ParsedFeed {
             url: url.clone(),
             title: feed.title.map(|v| v.content).unwrap_or_default(),
             site_link,
             description: feed.description.map(|v| v.content).unwrap_or_default(),
-            site_favicon: None,
-            added_at: time::OffsetDateTime::now_utc(),
         }
-    }
-
-    pub fn site_link_as_url(&self) -> Option<Url> {
-        Url::parse(&self.site_link).ok()
     }
 }
 
@@ -144,15 +149,19 @@ pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
         url = tracing::field::Empty,
     )
 )]
-pub async fn insert_feed(pool: &PgPool, user_id: &UserId, feed: &Feed) -> Result<(), sqlx::Error> {
+pub async fn insert_feed(
+    pool: &PgPool,
+    user_id: &UserId,
+    feed: &ParsedFeed,
+) -> Result<FeedId, sqlx::Error> {
     // TODO(vincent): use a proper custom error type ?
 
-    sqlx::query!(
+    let result = sqlx::query!(
         r#"
-        INSERT INTO feeds(id, user_id, url, title, site_link, description, added_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO feeds(user_id, url, title, site_link, description, added_at)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id
         "#,
-        &feed.id.0,
         &user_id.0,
         feed.url.to_string(),
         &feed.title,
@@ -160,10 +169,12 @@ pub async fn insert_feed(pool: &PgPool, user_id: &UserId, feed: &Feed) -> Result
         &feed.description,
         time::OffsetDateTime::now_utc(),
     )
-    .execute(pool)
+    .fetch_one(pool)
     .await?;
 
-    Ok(())
+    let feed_id = FeedId(result.id);
+
+    Ok(feed_id)
 }
 
 #[tracing::instrument(name = "Get all feeds", skip(executor))]
@@ -437,7 +448,7 @@ mod tests {
 
         let url = Url::parse("https://example.com/blog/").unwrap();
 
-        let feed = Feed::parse(&url, DATA.as_bytes()).unwrap();
+        let feed = ParsedFeed::parse(&url, DATA.as_bytes()).unwrap();
         assert_eq!(feed.title, "Foo");
         assert_eq!(feed.site_link, "https://example.com/blog/");
         assert_eq!(feed.description, "Foo");
@@ -460,7 +471,7 @@ mod tests {
 
         let url = Url::parse("https://example.com/blog/").unwrap();
 
-        let feed = Feed::parse(&url, DATA.as_bytes()).unwrap();
+        let feed = ParsedFeed::parse(&url, DATA.as_bytes()).unwrap();
         assert_eq!(feed.title, "Foo");
         assert_eq!(feed.site_link, "https://example.com/blog/");
         assert_eq!(feed.description, "Foo");
@@ -485,7 +496,7 @@ mod tests {
         let found_feed = find_feed(&mock_url, &data[..]).unwrap();
 
         let feed = match found_feed {
-            FoundFeed::Raw(raw_feed) => Feed::from_raw_feed(&mock_url, raw_feed),
+            FoundFeed::Raw(raw_feed) => ParsedFeed::from_raw_feed(&mock_url, raw_feed),
             FoundFeed::Url(_) => panic!("expected a FoundFeed::Raw"),
         };
 
