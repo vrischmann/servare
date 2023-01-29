@@ -34,10 +34,10 @@ port = 6831
 [tracing.targets]
 logging = [
     "sqlx=error",
-    "servare=trace",
     "info",
 ]
 jaeger = [
     "sqlx=error",
-    "info",
+    "servare=trace",
+    "debug",
 ]
