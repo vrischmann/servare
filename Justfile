@@ -1,8 +1,14 @@
+set export
+
+TRACING_LOGGING_ENV_FILTER := "sqlx=error,info"
+TRACING_JAEGER_ENV_FILTER := "sqlx=error,servare=trace,info"
+RUST_LOG := "info"
+
 default: dev
 
 dev:
 	sqlx database setup
-	DATABASE_NAME=servare RUST_LOG=sqlx=error,info cargo watch -x 'run -- serve'
+	DATABASE_NAME=servare cargo watch -x 'run -- serve'
 
 check:
 	sqlx database setup

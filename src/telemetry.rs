@@ -22,7 +22,7 @@ where
 {
     let logging_layer = {
         let env_filter = EnvFilter::builder()
-            .with_default_directive(LevelFilter::INFO.into())
+            .with_env_var("TRACING_LOGGING_ENV_FILTER")
             .from_env_lossy();
 
         let formatting_layer = BunyanFormattingLayer::new(config.name.clone(), sink)
@@ -41,7 +41,14 @@ where
                 .with_service_name(config.name)
                 .install_simple()
                 .expect("unable to get otel jaeger agent pipeline");
-            let otel_layer = tracing_opentelemetry::layer().with_tracer(otel_tracer);
+
+            let env_filter = EnvFilter::builder()
+                .with_env_var("TRACING_JAEGER_ENV_FILTER")
+                .from_env_lossy();
+
+            let otel_layer = tracing_opentelemetry::layer()
+                .with_tracer(otel_tracer)
+                .with_filter(env_filter);
 
             Box::new(
                 Registry::default()
