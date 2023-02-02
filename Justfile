@@ -13,7 +13,9 @@ check:
 	DATABASE_NAME=servare cargo watch -x 'check --all-targets --all-features'
 
 clippy:
-	cargo clippy -- --deny=warnings
+	cargo clippy --                               \
+		-Aclippy::uninlined_format_args       \
+		--deny=warnings
 
 prepare:
 	cargo sqlx prepare -- --all-targets --all-features
