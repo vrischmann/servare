@@ -228,7 +228,10 @@ mod tests {
         match result.unwrap_err() {
             AuthError::InvalidCredentials(_) => {}
             AuthError::Unexpected(err) => {
-                panic!("expected a InvalidCredentials error, got Unexpected: {err}")
+                panic!(
+                    "expected a InvalidCredentials error, got Unexpected: {}",
+                    err
+                )
             }
         }
     }

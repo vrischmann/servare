@@ -112,7 +112,7 @@ async fn run_users(config: Config, matches: &clap::ArgMatches) -> anyhow::Result
             // Create the admin user
             let user_id = create_user(&pool, &email, password).await?;
 
-            println!("created user {email}. id={user_id}");
+            println!("created user {}. id={}", email, user_id);
 
             Ok(())
         }
@@ -179,7 +179,7 @@ fn main() {
     let result = runtime.block_on(future);
 
     if let Err(err) = result {
-        println!("{err}");
+        println!("{}", err);
         std::process::exit(1);
     }
 }

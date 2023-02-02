@@ -199,7 +199,7 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
         .expect("Failed to build HTTP client");
 
     let test_app = TestApp {
-        address: format!("http://127.0.0.1:{app_port}"),
+        address: format!("http://127.0.0.1:{}", app_port),
         port: app_port,
         pool,
         http_client,
