@@ -70,7 +70,9 @@ jobs:
         env:
           RUSTFLAGS: "-Cinstrument-coverage"
         run: |
-          cargo clippy -- --deny=warnings
+          cargo clippy --                         \
+            -Aclippy::uninlined_format_args       \
+            --deny=warnings
           cargo fmt -- --check
 
       - name: Generate the code coverage with grcov
