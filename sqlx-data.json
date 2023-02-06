@@ -98,6 +98,34 @@
     },
     "query": "UPDATE sessions SET state = $1, expires_at = $2 WHERE id = $3"
   },
+  "2aac2b69eac20affadb5b4a8a4b7a4f46498549fc68487a0c339541ee6c5fa05": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n                INSERT INTO users(id, email, password_hash)\n                VALUES($1, $2, $3)\n                "
+  },
+  "30f5339441ea87d0d541be812fafc1a43675d6ea51dc27648176928c4fa5b1bb": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n            INSERT INTO users(id, email, password_hash)\n            VALUES ($1, $2, $3)\n            "
+  },
   "39cc8ff57ddbe5c8fac558315064b3442319a33b89ce8c7bb7fed2f1e4c2fb8f": {
     "describe": {
       "columns": [
