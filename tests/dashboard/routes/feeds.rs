@@ -9,7 +9,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[derive(Serialize)]
 struct AddFeedBody {
-    pub url: Url,
+    pub url: String,
 }
 
 #[tokio::test]
@@ -62,7 +62,9 @@ async fn feeds_should_be_displayed() {
 
     let urls = vec![feed1_url, feed2_url];
     for url in urls {
-        let body = AddFeedBody { url };
+        let body = AddFeedBody {
+            url: url.to_string(),
+        };
 
         let response = app.post("/feeds/add", &body).await;
         assert_is_redirect_to(&response, "/feeds");
@@ -80,11 +82,48 @@ async fn feeds_should_be_displayed() {
 }
 
 #[tokio::test]
-async fn settings_page_should_redirect_if_not_logged_in() {
-    // Setup
+async fn adding_a_feed_url_without_scheme_should_work() {
+    // Setup, login
     let app = spawn_app().await;
 
-    // Fetch the settings page
-    let response = app.get("/settings").await;
-    assert_is_redirect_to(&response, "/login");
+    let login_body = LoginBody {
+        email: app.test_user.email.clone(),
+        password: app.test_user.password.clone(),
+    };
+    let login_response = app.post("/login", &login_body).await;
+    assert_is_redirect_to(&login_response, "/");
+
+    // Setup a mock server that responds with a test XML feed on /feed
+
+    let mock_server = MockServer::start().await;
+    let mock_uri = mock_server.uri();
+
+    let response = ResponseTemplate::new(200).set_body_raw(
+        TestData::get("tailscale_rss_feed.xml").unwrap().data,
+        "application/xml",
+    );
+
+    Mock::given(path("/feed"))
+        .respond_with(response.clone())
+        .expect(1)
+        .mount(&mock_server)
+        .await;
+
+    // Create two feeds
+
+    let body = AddFeedBody {
+        url: [mock_uri.strip_prefix("http://").unwrap(), "/feed"].concat(),
+    };
+
+    let response = app.post("/feeds/add", &body).await;
+    assert_is_redirect_to(&response, "/feeds");
+
+    // Fetch the feeds page and check the content
+
+    let response = app.get_html("/feeds").await;
+    assert!(response.contains("Found a feed"));
+
+    let document = Document::from_read(response.as_bytes()).unwrap();
+    let feed_cards = document.find(Class("feed-card")).count();
+    assert_eq!(1, feed_cards);
 }

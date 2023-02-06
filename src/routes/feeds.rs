@@ -98,7 +98,7 @@ pub async fn handle_feeds(
 
 #[derive(Deserialize)]
 pub struct FeedAddFormData {
-    pub url: Url,
+    pub url: String,
 }
 
 #[derive(thiserror::Error)]
@@ -109,6 +109,8 @@ pub enum FeedAddError {
     URLNotAValidRSSFeed(#[from] ParseError),
     #[error("URL is inaccessible")]
     URLInaccessible(#[source] reqwest::Error),
+    #[error("URL is invalid")]
+    URLInvalid(#[source] url::ParseError),
     #[error("Feed already exists")]
     FeedAlreadyExists,
     #[error("Something went wrong")]
@@ -118,6 +120,18 @@ pub enum FeedAddError {
 impl fmt::Debug for FeedAddError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         error_chain_fmt(self, f)
+    }
+}
+
+fn guess_url(url: String) -> Result<Url, url::ParseError> {
+    if url.starts_with("https://") || url.starts_with("http://") {
+        return Url::parse(&url);
+    }
+
+    if url.starts_with("localhost") || url.starts_with("127.0.0.1") {
+        Url::parse(&["http://", &url].concat())
+    } else {
+        Url::parse(&["https://", &url].concat())
     }
 }
 
@@ -150,7 +164,13 @@ pub async fn handle_feeds_add(
 ) -> Result<HttpResponse, InternalError<FeedAddError>> {
     let user_id = get_user_id_or_redirect(&session)?;
 
-    let original_url = form_data.0.url;
+    // The URL might not have a scheme, try to guess it
+
+    let original_url = guess_url(form_data.0.url)
+        .map_err(FeedAddError::URLInvalid)
+        .map_err(feeds_page_redirect)?;
+
+    //
 
     tracing::Span::current()
         .record("user_id", &tracing::field::display(&user_id))
@@ -531,4 +551,24 @@ where
         .finish();
 
     InternalError::from_response(err, response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn guess_uri_should_work_with_and_without_a_scheme() {
+        let url1 = guess_url("http://127.0.0.1/foo".to_string()).unwrap();
+        let url2 = guess_url("127.0.0.1/foo".to_string()).unwrap();
+        assert_eq!(url1, url2);
+
+        let url1 = guess_url("http://localhost/foo".to_string()).unwrap();
+        let url2 = guess_url("localhost/foo".to_string()).unwrap();
+        assert_eq!(url1, url2);
+
+        let url1 = guess_url("https://example.com/foo".to_string()).unwrap();
+        let url2 = guess_url("example.com/foo".to_string()).unwrap();
+        assert_eq!(url1, url2);
+    }
 }
