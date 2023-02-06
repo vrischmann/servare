@@ -8,7 +8,7 @@
         "Left": [
           "Bytea",
           "Bool",
-          "Uuid"
+          "Int8"
         ]
       }
     },
@@ -98,34 +98,6 @@
     },
     "query": "UPDATE sessions SET state = $1, expires_at = $2 WHERE id = $3"
   },
-  "2aac2b69eac20affadb5b4a8a4b7a4f46498549fc68487a0c339541ee6c5fa05": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Uuid",
-          "Text",
-          "Text"
-        ]
-      }
-    },
-    "query": "\n                INSERT INTO users(id, email, password_hash)\n                VALUES($1, $2, $3)\n                "
-  },
-  "30f5339441ea87d0d541be812fafc1a43675d6ea51dc27648176928c4fa5b1bb": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Uuid",
-          "Text",
-          "Text"
-        ]
-      }
-    },
-    "query": "\n            INSERT INTO users(id, email, password_hash)\n            VALUES ($1, $2, $3)\n            "
-  },
   "39cc8ff57ddbe5c8fac558315064b3442319a33b89ce8c7bb7fed2f1e4c2fb8f": {
     "describe": {
       "columns": [
@@ -152,6 +124,27 @@
     },
     "query": "SELECT state, expires_at FROM sessions WHERE id = $1"
   },
+  "46f7d5565f23e126e24d953a50e85f3e07ceec39bab45a87b8bc4a4c46973b8e": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n        SELECT fe.id FROM feed_entries fe\n        INNER JOIN feeds f ON f.id = fe.feed_id\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1 AND fe.external_id = $2\n        "
+  },
   "60b525c178f2cad080563ea589e2c3ebf5f59be1ca8cafbc4dad7346124c92a4": {
     "describe": {
       "columns": [],
@@ -171,7 +164,7 @@
         {
           "name": "id",
           "ordinal": 0,
-          "type_info": "Uuid"
+          "type_info": "Int8"
         },
         {
           "name": "url",
@@ -227,6 +220,69 @@
     },
     "query": "\n        SELECT\n            f.id, f.url, f.title, f.site_link, f.description,\n            f.site_favicon, f.has_favicon,\n            f.added_at\n        FROM feeds f\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1\n        ORDER BY f.added_at DESC\n        "
   },
+  "8c3b1cfedff029c6dad2a2ed6fd87a3e6d4bc8ddde68271964d5756e030ec965": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "url",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "title",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "site_link",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "description",
+          "ordinal": 4,
+          "type_info": "Text"
+        },
+        {
+          "name": "site_favicon",
+          "ordinal": 5,
+          "type_info": "Bytea"
+        },
+        {
+          "name": "has_favicon",
+          "ordinal": 6,
+          "type_info": "Bool"
+        },
+        {
+          "name": "added_at",
+          "ordinal": 7,
+          "type_info": "Timestamptz"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        true,
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n            f.id, f.url, f.title, f.site_link, f.description,\n            f.site_favicon, f.has_favicon,\n            f.added_at\n        FROM feeds f\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1 AND f.id = $2\n\n        "
+  },
   "95ef38d99a8c66f3f3298f49cf5c47e99bb6f484807bf0872d09a4ba59339680": {
     "describe": {
       "columns": [],
@@ -239,31 +295,20 @@
     },
     "query": "UPDATE jobs SET attempts = attempts + 1 WHERE id = $1"
   },
-  "9dfd2cce01b6b0c1e20b441c32887b45dec25f23bc4f0941f998be96bbf55775": {
+  "9c59d361ca2c8cf6012c5288c5a89fc933adfbb820339dfa8579d3fa74f81a7a": {
     "describe": {
-      "columns": [],
-      "nullable": [],
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
       "parameters": {
         "Left": [
-          "Uuid",
-          "Uuid",
-          "Text",
-          "Text",
-          "Timestamptz",
-          "Text",
-          "Text"
-        ]
-      }
-    },
-    "query": "\n        INSERT INTO feed_entries(id, feed_id, title, url, created_at, creator, summary)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        "
-  },
-  "a38014a758babb19d4e186620f3a8fbd4e497a89e685b59b0d4cb086830dbc70": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Uuid",
           "Uuid",
           "Text",
           "Text",
@@ -273,7 +318,46 @@
         ]
       }
     },
-    "query": "\n        INSERT INTO feeds(id, user_id, url, title, site_link, description, added_at)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        "
+    "query": "\n        INSERT INTO feeds(user_id, url, title, site_link, description, added_at)\n        VALUES ($1, $2, $3, $4, $5, $6)\n        RETURNING id\n        "
+  },
+  "abf49dd187a4378333e2d94138d1a96d01426e638e913dc42040da23ed66b62c": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        }
+      ],
+      "nullable": [
+        false
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n        SELECT f.id FROM feeds f\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1 AND f.url = $2\n        "
+  },
+  "b890f60d5a25ad61f805578317875b5bbbd1e2d1814ea3793677e735442ad8e9": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Int8",
+          "Text",
+          "Text",
+          "Text",
+          "Timestamptz",
+          "TextArray",
+          "Text"
+        ]
+      }
+    },
+    "query": "\n        INSERT INTO feed_entries(feed_id, external_id, title, url, created_at, authors, summary)\n        VALUES ($1, $2, $3, $4, $5, $6, $7)\n        "
   },
   "c175a79084064d1e765c545b0c9c4739fdc3169e863927fc957c023e9a4615c1": {
     "describe": {
@@ -290,7 +374,7 @@
       "parameters": {
         "Left": [
           "Uuid",
-          "Uuid"
+          "Int8"
         ]
       }
     },
@@ -417,7 +501,7 @@
         {
           "name": "id",
           "ordinal": 0,
-          "type_info": "Uuid"
+          "type_info": "Int8"
         },
         {
           "name": "site_link",
@@ -436,5 +520,56 @@
       }
     },
     "query": "\n            SELECT id, site_link\n            FROM feeds f\n            WHERE has_favicon IS NULL\n            LIMIT $1\n            "
+  },
+  "f408e239fb1361c4753a0e064b4311bec484a7d1e2f23224c905c379d1f0e28f": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "url",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "summary",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 4,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "authors",
+          "ordinal": 5,
+          "type_info": "TextArray"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n          fe.id, fe.title, fe.url, fe.summary, fe.created_at, fe.authors\n        FROM feeds f\n        INNER JOIN feed_entries fe ON fe.feed_id = f.id\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1 AND f.id = $2\n        "
   }
 }
