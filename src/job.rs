@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
 use std::fmt;
+use std::io::Write;
 use tracing::{error, event, info, Level};
 use url::Url;
 use uuid::Uuid;
@@ -236,12 +237,16 @@ impl Job {
 
         match self {
             Job::FetchFavicon(data) => {
-                let bytes: [u8; 8] = data.feed_id.into();
-                hasher.update(bytes);
+                write!(hasher, "fetch_favicon").unwrap();
+
+                let feed_id_bytes: [u8; 8] = data.feed_id.into();
+                hasher.update(feed_id_bytes);
             }
             Job::RefreshFeed(data) => {
-                let bytes: [u8; 8] = data.feed_id.into();
-                hasher.update(bytes);
+                write!(hasher, "refresh_feed").unwrap();
+
+                let feed_id_bytes: [u8; 8] = data.feed_id.into();
+                hasher.update(feed_id_bytes);
             }
         }
 
