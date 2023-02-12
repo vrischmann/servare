@@ -6,7 +6,7 @@ default: dev
 
 dev:
 	sqlx database setup
-	DATABASE_NAME=servare cargo run -- serve
+	DATABASE_NAME=servare cargo watch -x 'run -- serve'
 
 check:
 	sqlx database setup
