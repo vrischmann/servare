@@ -1,0 +1,29 @@
+{% extends "base.html.j2" %}
+
+{% block title %}{{ feed.original.title }}{% endblock %}
+{% block content -%}
+
+{%- if let Some(site_link) = feed.site_link %}
+<h1><a href="{{ site_link }}">{{ feed.original.title }}</a></h1>
+{% else %}
+<h1>{{ feed.original.title }}</h1>
+{% endif -%}
+
+<nav class="feeds">
+	<a href="/feeds/{{ feed.original.id }}/entries">Back</a>
+</nav>
+
+<div class="content">
+	<article class="feed-entry-card">
+	<h3 class="title"><a href="/feeds/{{ feed.original.id }}/entries/{{ entry.original.id }}" class="title-link">{{ entry.original.title }}</a></h3>
+	<div class="metadata">
+		<p class="created-at">{{ entry.created_at }}</p>
+		<p class="author">{{ entry.author }}</p>
+	</div>
+	<div class="summary">
+	{{ entry.original.summary|safe }}
+	</div>
+	</article>
+</div>
+
+{%- endblock %}

@@ -1,7 +1,8 @@
 use crate::domain::UserId;
 use crate::feed::{feed_with_url_exists, find_feed, insert_feed};
-use crate::feed::{get_all_feeds, get_feed, get_feed_entries, get_feed_favicon};
-use crate::feed::{Feed, FeedEntry, FeedId, FindError, FoundFeed, ParseError, ParsedFeed};
+use crate::feed::{get_all_feeds, get_feed, get_feed_entries, get_feed_entry, get_feed_favicon};
+use crate::feed::{Feed, FeedId, FindError, FoundFeed, ParseError, ParsedFeed};
+use crate::feed::{FeedEntry, FeedEntryId};
 use crate::job::{add_fetch_favicon_job, add_refresh_feed_job};
 use crate::routes::FEEDS_PAGE;
 use crate::routes::{e500, get_user_id_or_redirect, see_other};
@@ -531,6 +532,116 @@ pub async fn handle_feed_entries(
         .render()
         .map_err(Into::<anyhow::Error>::into)
         .map_err(FeedEntriesError::Unexpected)
+        .map_err(e500)?;
+
+    let response = HttpResponse::Ok()
+        .content_type(http::header::ContentType::html())
+        .body(tpl_rendered);
+
+    Ok(response)
+}
+
+//
+// Feed entry: /feeds/:feed_id/entries/:entry_id
+//
+
+#[derive(askama::Template)]
+#[template(path = "feed_entry.html.j2")]
+struct FeedEntryTemplate {
+    pub page: &'static str,
+    pub user_id: Option<UserId>,
+    pub flash_messages: IncomingFlashMessages,
+    pub feed: FeedForTemplate,
+    pub entry: FeedEntryForTemplate,
+}
+
+#[derive(thiserror::Error)]
+pub enum FeedEntryError {
+    #[error("Feed not found")]
+    FeedNotFound,
+    #[error("Entry not found")]
+    EntryNotFound,
+    #[error("Something went wrong")]
+    Unexpected(#[from] anyhow::Error),
+}
+
+impl fmt::Debug for FeedEntryError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        error_chain_fmt(self, f)
+    }
+}
+
+#[tracing::instrument(
+    name = "Feed entry",
+    skip(pool, session, flash_messages, route_params),
+    fields(
+        user_id = tracing::field::Empty,
+        feed_id = tracing::field::Empty,
+        entry_id = tracing::field::Empty,
+    )
+)]
+pub async fn handle_feed_entry(
+    pool: WebData<PgPool>,
+    session: TypedSession,
+    flash_messages: IncomingFlashMessages,
+    route_params: WebPath<(FeedId, FeedEntryId)>,
+) -> Result<HttpResponse, InternalError<FeedEntryError>> {
+    let user_id = get_user_id_or_redirect(&session)?;
+    let feed_id = route_params.0;
+    let entry_id = route_params.1;
+
+    tracing::Span::current()
+        .record("user_id", &tracing::field::display(&user_id))
+        .record("feed_id", &tracing::field::display(&feed_id))
+        .record("entry_id", &tracing::field::display(&entry_id));
+
+    // NOTE(vincent): do we need a transaction here since we don't write anything ?
+    let mut tx = {
+        let tx_begin_span = tracing::span!(Level::TRACE, "tx_begin");
+        let _guard = tx_begin_span.enter();
+
+        pool.begin()
+            .await
+            .map_err(Into::<anyhow::Error>::into)
+            .map_err(FeedEntryError::Unexpected)
+            .map_err(e500)?
+    };
+
+    // 1) Get the feed data
+
+    let feed = get_feed(&mut tx, &user_id, &feed_id)
+        .await
+        .map_err(FeedEntryError::Unexpected)
+        .map_err(feeds_page_redirect)?;
+
+    let feed = feed
+        .ok_or(FeedEntryError::FeedNotFound)
+        .map_err(feeds_page_redirect)?;
+
+    // 1) Get the feed entry
+
+    let entry = get_feed_entry(&mut tx, &user_id, &feed_id, &entry_id)
+        .await
+        .map_err(FeedEntryError::Unexpected)
+        .map_err(feeds_page_redirect)?; // TODO(vincent): redirect to the feed page;
+
+    let entry = entry
+        .ok_or(FeedEntryError::EntryNotFound)
+        .map_err(feeds_page_redirect)?; // TODO(vincent): redirect to the feed page;
+
+    // Render
+
+    let tpl = FeedEntryTemplate {
+        page: FEEDS_PAGE,
+        user_id: Some(user_id),
+        flash_messages,
+        feed: FeedForTemplate::new(feed),
+        entry: FeedEntryForTemplate::new(entry),
+    };
+    let tpl_rendered = tpl
+        .render()
+        .map_err(Into::<anyhow::Error>::into)
+        .map_err(FeedEntryError::Unexpected)
         .map_err(e500)?;
 
     let response = HttpResponse::Ok()

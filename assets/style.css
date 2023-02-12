@@ -350,3 +350,24 @@ form.feed-add {
 .feed-entry-card .metadata>.author {
     padding: 10px;
 }
+
+.feed-entry-card .summary {
+    border: black solid;
+    border-width: 1px 0px 0px 0px;
+    padding: 1em;
+}
+
+.feed-entry-card .summary p {
+    margin-top: 0.7em;
+    margin-bottom: 0.7em;
+}
+
+.feed-entry-card .summary ul {
+    padding-left: 2em;
+}
+
+.feed-entry-card .summary blockquote {
+    border: gray solid;
+    border-width: 0px 0px 0px 4px;
+    padding-left: 2em;
+}

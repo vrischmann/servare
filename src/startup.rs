@@ -141,8 +141,13 @@ fn create_server(
                     .route("/add", web::post().to(handle_feeds_add))
                     .route("/add", web::get().to(handle_feeds_add_form))
                     .route("/refresh", web::post().to(handle_feeds_refresh))
-                    .route("/{feed_id}/favicon", web::get().to(handle_feed_favicon))
-                    .route("/{feed_id}/entries", web::get().to(handle_feed_entries)),
+                    .service(
+                        web::scope("/{feed_id}")
+                            .route("/", web::get().to(handle_feed_entries))
+                            .route("/favicon", web::get().to(handle_feed_favicon))
+                            .route("/entries", web::get().to(handle_feed_entries))
+                            .route("/entries/{entry_id}", web::get().to(handle_feed_entry)),
+                    ),
             )
             .app_data(pool.clone())
             .app_data(http_client.clone())
