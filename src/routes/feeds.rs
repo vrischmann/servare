@@ -254,9 +254,13 @@ pub async fn handle_feeds_add(
 
     // 5) Add needed background jobs
     //
-    // Note we don't fail if this returns an error, it's only a backgroun job
+    // Note we don't fail if these return an error, it's only a backgroun job
+
     if let Err(err) = add_fetch_favicon_job(pool.as_ref(), feed_id, &feed.site_link).await {
         warn!(%err, "unable to add fetch favicon job");
+    }
+    if let Err(err) = add_refresh_feed_job(pool.as_ref(), &user_id, feed_id, feed.url).await {
+        warn!(%err, "unable to add refresh feed job");
     }
 
     FlashMessage::success("Found a feed").send();
