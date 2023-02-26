@@ -1,6 +1,9 @@
 use crate::domain::UserId;
 use crate::feed::{feed_with_url_exists, find_feed, insert_feed};
-use crate::feed::{get_all_feeds, get_feed, get_feed_entries, get_feed_entry, get_feed_favicon};
+use crate::feed::{
+    get_all_feeds, get_feed, get_feed_entries, get_feed_entry, get_feed_favicon,
+    mark_feed_entry_as_read,
+};
 use crate::feed::{Feed, FeedId, FindError, FoundFeed, ParseError, ParsedFeed};
 use crate::feed::{FeedEntry, FeedEntryId};
 use crate::job::{add_fetch_favicon_job, add_refresh_feed_job};
@@ -595,7 +598,6 @@ pub async fn handle_feed_entry(
         .record("feed_id", &tracing::field::display(&feed_id))
         .record("entry_id", &tracing::field::display(&entry_id));
 
-    // NOTE(vincent): do we need a transaction here since we don't write anything ?
     let mut tx = {
         let tx_begin_span = tracing::span!(Level::TRACE, "tx_begin");
         let _guard = tx_begin_span.enter();
@@ -627,6 +629,19 @@ pub async fn handle_feed_entry(
 
     let entry = entry
         .ok_or(FeedEntryError::EntryNotFound)
+        .map_err(feeds_page_redirect)?; // TODO(vincent): redirect to the feed page;
+
+    // 2) Set its read date
+
+    mark_feed_entry_as_read(&mut tx, &user_id, &feed_id, &entry_id)
+        .await
+        .map_err(FeedEntryError::Unexpected)
+        .map_err(feeds_page_redirect)?; // TODO(vincent): redirect to the feed page;
+
+    tx.commit()
+        .await
+        .map_err(Into::<anyhow::Error>::into)
+        .map_err(FeedEntryError::Unexpected)
         .map_err(feeds_page_redirect)?; // TODO(vincent): redirect to the feed page;
 
     // Render
