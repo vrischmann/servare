@@ -1,0 +1,18 @@
+{% extends "base.html.j2" %}
+
+{% block title %}Unread entries{% endblock %}
+{% block content -%}
+
+<div class="content feed-entries-listing grid1">
+	{% for entry in entries %}
+	<article class="feed-entry-card">
+		<h3 class="title"><a href="/feeds/{{ entry.original.feed_id }}/entries/{{ entry.original.id }}" class="title-link">{{ entry.original.title }}</a></h3>
+		<div class="metadata">
+			<p class="created-at">{{ entry.created_at }}</p>
+			<p class="author">{{ entry.author }}</p>
+		</div>
+	</article>
+	{% endfor %}
+</div>
+
+{%- endblock %}

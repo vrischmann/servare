@@ -416,6 +416,8 @@ pub async fn handle_feed_favicon(
     }
 }
 
+// TODO(vincent): this is duplicated code, refactor it
+
 struct FeedEntryForTemplate {
     original: FeedEntry,
     created_at: String,

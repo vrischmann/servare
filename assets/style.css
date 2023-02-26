@@ -20,6 +20,20 @@
     --gray-4: #9ca3af;
 }
 
+/* Grid stuff */
+
+.grid1 {
+    grid-template-columns: 1fr;
+}
+.grid2 {
+    grid-template-columns: 1fr 1fr;
+}
+.grid3 {
+    grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* Main stuff */
+
 html {
     height: 100%;
 }
@@ -304,7 +318,6 @@ form.feed-add {
 
 .feed-entries-listing {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
     gap: 1em;
 }
 
