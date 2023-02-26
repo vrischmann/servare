@@ -152,6 +152,58 @@
     },
     "query": "SELECT state, expires_at FROM sessions WHERE id = $1"
   },
+  "3ec3ef31fccf97cd4fce75fb1238976501b1131de196e3ed8851b119f20a9203": {
+    "describe": {
+      "columns": [
+        {
+          "name": "id",
+          "ordinal": 0,
+          "type_info": "Int8"
+        },
+        {
+          "name": "title",
+          "ordinal": 1,
+          "type_info": "Text"
+        },
+        {
+          "name": "url",
+          "ordinal": 2,
+          "type_info": "Text"
+        },
+        {
+          "name": "summary",
+          "ordinal": 3,
+          "type_info": "Text"
+        },
+        {
+          "name": "created_at",
+          "ordinal": 4,
+          "type_info": "Timestamptz"
+        },
+        {
+          "name": "authors",
+          "ordinal": 5,
+          "type_info": "TextArray"
+        }
+      ],
+      "nullable": [
+        false,
+        false,
+        true,
+        false,
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Uuid",
+          "Int8",
+          "Int8"
+        ]
+      }
+    },
+    "query": "\n        SELECT\n          fe.id, fe.title, fe.url, fe.summary, fe.created_at, fe.authors\n        FROM feeds f\n        INNER JOIN feed_entries fe ON fe.feed_id = f.id\n        INNER JOIN users u ON f.user_id = u.id\n        WHERE u.id = $1 AND f.id = $2 AND fe.id = $3\n        "
+  },
   "46f7d5565f23e126e24d953a50e85f3e07ceec39bab45a87b8bc4a4c46973b8e": {
     "describe": {
       "columns": [
