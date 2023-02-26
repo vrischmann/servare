@@ -371,3 +371,8 @@ form.feed-add {
     border-width: 0px 0px 0px 4px;
     padding-left: 2em;
 }
+
+.feed-entry-card .summary img {
+    max-width: 100%;
+    height: auto;
+}
