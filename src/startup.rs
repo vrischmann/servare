@@ -149,6 +149,7 @@ fn create_server(
                             .route("/entries/{entry_id}", web::get().to(handle_feed_entry)),
                     ),
             )
+            .route("/unread", web::get().to(handle_unread))
             .app_data(pool.clone())
             .app_data(http_client.clone())
     })

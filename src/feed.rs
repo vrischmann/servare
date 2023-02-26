@@ -20,6 +20,7 @@ impl_typed_id!(FeedEntryId);
 #[derive(Debug)]
 pub struct FeedEntry {
     pub id: FeedEntryId,
+    pub feed_id: FeedId,
     pub url: Option<Url>,
     pub title: String,
     pub summary: String,
@@ -376,6 +377,7 @@ where
     for record in records {
         entries.push(FeedEntry {
             id: FeedEntryId(record.id),
+            feed_id: *feed_id,
             url: parse_url_from_record(record.url)?,
             title: record.title,
             summary: record.summary,
@@ -433,6 +435,7 @@ where
     let result = if let Some(record) = record {
         Some(FeedEntry {
             id: FeedEntryId(record.id),
+            feed_id: *feed_id,
             url: parse_url_from_record(record.url)?,
             title: record.title,
             summary: record.summary,
@@ -442,6 +445,63 @@ where
     } else {
         None
     };
+
+    Ok(result)
+}
+
+/// Get the unread feed entries.
+///
+/// TODO(vincent): this might need some pagination ?
+///
+/// # Errors
+///
+/// This function will return an error if:
+/// * a SQL error occurred
+/// * the stored feed entry URL is invalid somehow
+#[tracing::instrument(
+    name = "Get unread entries",
+    skip(executor),
+    fields(
+        user_id = %user_id,
+    ),
+)]
+pub async fn get_unread_entries<'e, E>(
+    executor: E,
+    user_id: &UserId,
+) -> Result<Vec<FeedEntry>, anyhow::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    let records = sqlx::query!(
+        r#"
+        SELECT
+          fe.id, fe.feed_id, fe.title, fe.url, fe.summary, fe.created_at, fe.authors
+        FROM feeds f
+        INNER JOIN feed_entries fe ON fe.feed_id = f.id
+        INNER JOIN users u ON f.user_id = u.id
+        WHERE u.id = $1 AND fe.read_at IS NULL
+        ORDER BY created_at DESC
+        "#,
+        &user_id.0,
+    )
+    .fetch_all(executor)
+    .await
+    .map_err(Into::<anyhow::Error>::into)
+    .context("unable to fetch the feed entries")?;
+
+    let mut result = Vec::new();
+    for record in records {
+        let feed_entry = FeedEntry {
+            id: FeedEntryId(record.id),
+            feed_id: FeedId(record.feed_id),
+            url: parse_url_from_record(record.url)?,
+            title: record.title,
+            summary: record.summary,
+            created_at: record.created_at,
+            authors: record.authors.unwrap_or_default(),
+        };
+        result.push(feed_entry);
+    }
 
     Ok(result)
 }

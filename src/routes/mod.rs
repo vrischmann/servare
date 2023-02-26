@@ -73,13 +73,16 @@ pub(crate) const FEEDS_PAGE: &str = "feeds";
 pub(crate) const HOME_PAGE: &str = "home";
 pub(crate) const LOGIN_PAGE: &str = "login";
 pub(crate) const SETTINGS_PAGE: &str = "settings";
+pub(crate) const UNREAD_PAGE: &str = "unread";
 
 mod feeds;
 mod home;
 mod login;
 mod settings;
+mod unread;
 
 pub use feeds::*;
 pub use home::handle_home;
 pub use login::*;
 pub use settings::*;
+pub use unread::*;
