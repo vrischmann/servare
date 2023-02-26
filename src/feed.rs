@@ -446,6 +446,44 @@ where
     Ok(result)
 }
 
+#[tracing::instrument(
+    name = "Mark a feed entry as read",
+    skip(executor),
+    fields(
+        user_id = %user_id,
+        feed_id = %feed_id,
+        entry_id = %entry_id,
+    ),
+)]
+pub async fn mark_feed_entry_as_read<'e, E>(
+    executor: E,
+    user_id: &UserId,
+    feed_id: &FeedId,
+    entry_id: &FeedEntryId,
+) -> Result<(), anyhow::Error>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    sqlx::query!(
+        r#"
+        UPDATE feed_entries
+        SET read_at = now()
+        FROM feeds f
+        INNER JOIN users u ON f.user_id = u.id
+        WHERE u.id = $1 AND f.id = $2 AND feed_entries.id = $3
+        "#,
+        &user_id.0,
+        &feed_id.0,
+        &entry_id.0,
+    )
+    .execute(executor)
+    .await
+    .map_err(Into::<anyhow::Error>::into)
+    .context("unable to fetch the feed entry")?;
+
+    Ok(())
+}
+
 /// Check if a feed with the given `url` already exists.
 ///
 /// # Errors
