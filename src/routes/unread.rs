@@ -87,7 +87,7 @@ pub async fn handle_unread(
 
     let feed_entries = original_feed_entries
         .into_iter()
-        .map(|feed_entry| FeedEntryForTemplate::new(feed_entry))
+        .map(FeedEntryForTemplate::new)
         .collect();
 
     // Render
