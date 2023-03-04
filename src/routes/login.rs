@@ -1,6 +1,6 @@
 use crate::authentication::{authenticate, AuthError, Credentials};
+use crate::debug_with_error_chain;
 use crate::domain::{UserEmail, UserId};
-use crate::error_chain_fmt;
 use crate::routes::LOGIN_PAGE;
 use crate::routes::{e500, see_other};
 use crate::sessions::TypedSession;
@@ -11,7 +11,6 @@ use actix_web_flash_messages::{FlashMessage, IncomingFlashMessages};
 use askama::Template;
 use secrecy::Secret;
 use sqlx::PgPool;
-use std::fmt;
 use tracing::{event, Level};
 
 // Login
@@ -70,11 +69,7 @@ pub enum LoginError {
     Unexpected(#[source] anyhow::Error),
 }
 
-impl fmt::Debug for LoginError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
+debug_with_error_chain!(LoginError);
 
 #[derive(serde::Deserialize)]
 pub struct LoginFormData {

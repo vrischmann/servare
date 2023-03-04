@@ -1,5 +1,5 @@
+use crate::debug_with_error_chain;
 use crate::domain::UserId;
-use crate::error_chain_fmt;
 use crate::feed::get_unread_entries;
 use crate::feed::FeedEntry;
 use crate::routes::{e500, get_user_id_or_redirect, UNREAD_PAGE};
@@ -11,7 +11,6 @@ use actix_web::HttpResponse;
 use actix_web_flash_messages::IncomingFlashMessages;
 use askama::Template;
 use sqlx::PgPool;
-use std::fmt;
 
 // TODO(vincent): this is duplicated code, refactor it
 
@@ -56,11 +55,7 @@ pub enum UnreadError {
     Unexpected(#[from] anyhow::Error),
 }
 
-impl fmt::Debug for UnreadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
+debug_with_error_chain!(UnreadError);
 
 #[tracing::instrument(
     name = "Unread",
