@@ -40,6 +40,17 @@ pub async fn fetch_bytes(client: &reqwest::Client, url: &Url) -> Result<Bytes, r
 }
 
 #[macro_export]
+macro_rules! debug_with_error_chain {
+    ($t:ident) => {
+        impl std::fmt::Debug for $t {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                $crate::error_chain_fmt(self, f)
+            }
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! typed_uuid {
     ($t:ident) => {
         impl From<uuid::Uuid> for $t {

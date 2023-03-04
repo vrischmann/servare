@@ -11,7 +11,7 @@ use crate::routes::FEEDS_PAGE;
 use crate::routes::{e500, get_user_id_or_redirect, see_other};
 use crate::sessions::TypedSession;
 use crate::telemetry::spawn_blocking_with_tracing;
-use crate::{error_chain_fmt, fetch_bytes};
+use crate::{debug_with_error_chain, fetch_bytes};
 use actix_web::error::InternalError;
 use actix_web::http;
 use actix_web::web::{Data as WebData, Form as WebForm, Path as WebPath};
@@ -121,11 +121,7 @@ pub enum FeedAddError {
     Unexpected(#[from] anyhow::Error),
 }
 
-impl fmt::Debug for FeedAddError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
+debug_with_error_chain!(FeedAddError);
 
 fn guess_url(url: String) -> Result<Url, url::ParseError> {
     if url.starts_with("https://") || url.starts_with("http://") {
@@ -318,11 +314,7 @@ pub enum FeedRefreshError {
     Unexpected(#[from] anyhow::Error),
 }
 
-impl fmt::Debug for FeedRefreshError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
+debug_with_error_chain!(FeedRefreshError);
 
 /// This is the /feeds/refresh handler.
 ///
@@ -462,11 +454,7 @@ pub enum FeedEntriesError {
     Unexpected(#[from] anyhow::Error),
 }
 
-impl fmt::Debug for FeedEntriesError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
+debug_with_error_chain!(FeedEntriesError);
 
 #[tracing::instrument(
     name = "Feed entries",
@@ -570,11 +558,7 @@ pub enum FeedEntryError {
     Unexpected(#[from] anyhow::Error),
 }
 
-impl fmt::Debug for FeedEntryError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
+debug_with_error_chain!(FeedEntryError);
 
 #[tracing::instrument(
     name = "Feed entry",
