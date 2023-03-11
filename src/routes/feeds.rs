@@ -8,7 +8,7 @@ use crate::feed::{Feed, FeedId, FindError, FoundFeed, ParseError, ParsedFeed};
 use crate::feed::{FeedEntry, FeedEntryId};
 use crate::job::{add_fetch_favicon_job, add_refresh_feed_job};
 use crate::routes::FEEDS_PAGE;
-use crate::routes::{e500, get_user_id_or_redirect, see_other};
+use crate::routes::{e500, error_redirect, get_user_id_or_redirect, see_other};
 use crate::sessions::TypedSession;
 use crate::telemetry::spawn_blocking_with_tracing;
 use crate::{debug_with_error_chain, fetch_bytes};
@@ -611,24 +611,24 @@ pub async fn handle_feed_entry(
     let entry = get_feed_entry(&mut tx, &user_id, &feed_id, &entry_id)
         .await
         .map_err(FeedEntryError::Unexpected)
-        .map_err(feeds_page_redirect)?; // TODO(vincent): redirect to the feed page;
+        .map_err(|err| feed_page_redirect(err, feed_id))?;
 
     let entry = entry
         .ok_or(FeedEntryError::EntryNotFound)
-        .map_err(feeds_page_redirect)?; // TODO(vincent): redirect to the feed page;
+        .map_err(|err| feed_page_redirect(err, feed_id))?;
 
     // 2) Set its read date
 
     mark_feed_entry_as_read(&mut tx, &user_id, &feed_id, &entry_id)
         .await
         .map_err(FeedEntryError::Unexpected)
-        .map_err(feeds_page_redirect)?; // TODO(vincent): redirect to the feed page;
+        .map_err(|err| feed_page_redirect(err, feed_id))?;
 
     tx.commit()
         .await
         .map_err(Into::<anyhow::Error>::into)
         .map_err(FeedEntryError::Unexpected)
-        .map_err(feeds_page_redirect)?; // TODO(vincent): redirect to the feed page;
+        .map_err(|err| feed_page_redirect(err, feed_id))?;
 
     // Render
 
@@ -652,21 +652,13 @@ pub async fn handle_feed_entry(
     Ok(response)
 }
 
-/// This creates a [`InternalError<E>`] from `err` and a 303 See Other response.
-/// It also sets a flash message with the content of the error [`ToString::to_string()`] method call.
-///
-/// Use this whenever you want to handle an error without returning a 500 Internal Server Error.
-fn feeds_page_redirect<E>(err: E) -> InternalError<E>
-where
-    E: fmt::Display,
-{
-    FlashMessage::error(err.to_string()).send();
+fn feeds_page_redirect<E: fmt::Display>(err: E) -> InternalError<E> {
+    error_redirect(err, "/feeds")
+}
 
-    let response = HttpResponse::SeeOther()
-        .insert_header((http::header::LOCATION, "/feeds"))
-        .finish();
-
-    InternalError::from_response(err, response)
+fn feed_page_redirect<E: fmt::Display>(err: E, feed_id: FeedId) -> InternalError<E> {
+    let location = format!("/feeds/{}/entries", feed_id);
+    error_redirect(err, &location)
 }
 
 #[cfg(test)]
