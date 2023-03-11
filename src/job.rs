@@ -613,8 +613,14 @@ mod tests {
     use super::*;
     use crate::feed::get_feed_favicon;
     use crate::tests::{create_feed, create_user, get_pool};
+    use select::document::Document;
+    use select::predicate::Name;
     use wiremock::matchers::path;
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[derive(rust_embed::RustEmbed)]
+    #[folder = "testdata/"]
+    struct TestData;
 
     #[tokio::test]
     async fn fetch_favicon_job_should_work_when_link_exists_in_site() {
@@ -672,5 +678,76 @@ mod tests {
         let favicon = get_feed_favicon(&pool, user_id, &feed_id).await.unwrap();
         assert!(favicon.is_some());
         assert_eq!(fake_icon_data, &favicon.unwrap()[..]);
+    }
+
+    #[tokio::test]
+    async fn image_links_in_summary_should_be_absolute() {
+        let feed_data = TestData::get("tailscale_rss_feed_relative_image.xml")
+            .unwrap()
+            .data;
+
+        let pool = get_pool().await;
+        let http_client = reqwest::Client::new();
+
+        // Setup a mock server that:
+        // * responds with a XML feed
+
+        let mock_server = MockServer::start().await;
+        let mock_uri = mock_server.uri();
+        let mock_url = Url::parse(&mock_uri).unwrap();
+
+        Mock::given(path("/"))
+            .respond_with(ResponseTemplate::new(200).set_body_raw(feed_data, "text/html"))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        // Create a test user and feed
+
+        let user_id = create_user(&pool).await;
+        let feed_id =
+            create_feed(&pool, user_id, &mock_url.join("/feed").unwrap(), &mock_url).await;
+
+        // Run the job
+
+        let data = RefreshFeedJobData {
+            user_id,
+            feed_id,
+            feed_url: mock_url,
+        };
+
+        run_refresh_feed_job(&http_client, &pool, data)
+            .await
+            .unwrap();
+
+        // Check the result
+
+        let records = sqlx::query!(
+            r#"
+            SELECT summary FROM feed_entries WHERE feed_id = $1
+            "#,
+            &feed_id.0,
+        )
+        .fetch_all(&pool)
+        .await
+        .expect("unable to get the feed entries");
+
+        assert_eq!(records.len(), 1);
+
+        // Find and check all images in the summary
+
+        let summary = &records[0].summary;
+
+        let document = Document::from(summary.as_str());
+
+        for image in document.find(Name("img")) {
+            let image_src = image.attr("src").unwrap_or_default();
+
+            println!("image src: {:?}", image_src);
+
+            assert!(image_src.starts_with("http"));
+        }
+
+        // println!("document: {:?}", document);
     }
 }
