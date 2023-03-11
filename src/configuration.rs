@@ -121,7 +121,7 @@ pub fn get_configuration() -> Result<Config, config::ConfigError> {
             config::File::new("configuration.toml", config::FileFormat::Toml).required(false),
         )
         .add_source(
-            config::File::new("/etc/zero2prod.toml", config::FileFormat::Toml).required(false),
+            config::File::new("/etc/servare.toml", config::FileFormat::Toml).required(false),
         )
         .add_source(
             config::Environment::default()
