@@ -38,9 +38,28 @@ Next you need to run the `install-tools` command like this:
 just install-tools
 ```
 
-## Workflow
+## First run
 
-Run `just check | bunyan` and hack away.
+By default there is no user configured so you can't login. There's a command to add a user though:
+
+```
+$ cargo build
+$ ./target/debug/servare users setup-admin foo@bar.com
+```
+
+## Working on tests
+
+If you're working on unit or integration tests the workflow usually looks like this:
+* run `just check` which continuously runs `cargo check` for quick feedback
+* once it compiles, run `cargo test`
+
+## Working on the application
+
+If you're working on the application itself or the UI the worklflow usually looks like this:
+* run `just dev` which continuously runs `cargo run -- serve`
+* reload the webpage
+
+This is not seamless because of the build time but it's usually fine.
 
 # License
 
