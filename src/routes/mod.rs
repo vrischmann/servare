@@ -1,8 +1,10 @@
 use crate::domain::UserId;
 use crate::sessions::TypedSession;
 use actix_web::error::InternalError;
+use actix_web::http;
 use actix_web::http::{header, StatusCode};
 use actix_web::HttpResponse;
+use actix_web_flash_messages::FlashMessage;
 use anyhow::anyhow;
 use std::convert::From;
 use std::fmt;
@@ -63,6 +65,23 @@ where
 
         Err(InternalError::from_response(err.into(), response))
     }
+}
+
+/// This creates a [`InternalError<E>`] from `err` and a 303 See Other response.
+/// It also sets a flash message with the content of the error [`ToString::to_string()`] method call.
+///
+/// Use this whenever you want to handle an error without returning a 500 Internal Server Error.
+pub fn error_redirect<E>(err: E, location: &str) -> InternalError<E>
+where
+    E: fmt::Display,
+{
+    FlashMessage::error(err.to_string()).send();
+
+    let response = HttpResponse::SeeOther()
+        .insert_header((http::header::LOCATION, location))
+        .finish();
+
+    InternalError::from_response(err, response)
 }
 
 pub async fn handle_status() -> HttpResponse {
