@@ -169,11 +169,16 @@ pub async fn get_connection_pool(config: &DatabaseConfig) -> Result<PgPool, sqlx
     connect_options.log_slow_statements(LevelFilter::Warn, StdDuration::from_millis(500));
     connect_options.log_statements(LevelFilter::Trace);
 
-    PgPoolOptions::new()
+    let pool = PgPoolOptions::new()
         .max_connections(1024)
         .acquire_timeout(StdDuration::from_secs(1))
         .connect_with(connect_options)
-        .await
+        .await?;
+
+    // Run the migrations on first connection if necessary
+    sqlx::migrate!().run(&pool).await?;
+
+    Ok(pool)
 }
 
 pub fn get_tem_client(configuration: &TEMConfig) -> anyhow::Result<tem::Client> {
