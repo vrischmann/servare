@@ -33,9 +33,11 @@ jobs:
           - 5432:5432
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      - uses: vrischmann/rust-cache@my
+      - name: Setup Rust cache
+        uses: vrischmann/rust-cache@my
 
       # Install tools
 
@@ -46,7 +48,7 @@ jobs:
 
       # Run tests
 
-      - name: Setup sqlx
+      - name: Setup test database
         run: sqlx database setup
 
       - name: Build and test
@@ -59,7 +61,7 @@ jobs:
           cargo build
           cargo test
 
-      - name: Lint
+      - name: Run clippy
         env:
           RUSTFLAGS: "-Cinstrument-coverage"
         run: |
