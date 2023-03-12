@@ -33,24 +33,22 @@ jobs:
           - 5432:5432
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v3
 
-      # Install toolchain
+      - name: Setup Rust cache
+        uses: vrischmann/rust-cache@my
 
-      - run: |
-          rustup set auto-self-update disable
-          rustup toolchain install stable --profile minimal --component llvm-tools-preview
-
-      - uses: vrischmann/rust-cache@my
+      # Install tools
 
       - name: Install sqlx-cli
         run: cargo install sqlx-cli --no-default-features --features rustls,postgres
       - name: Install grcov
         run: cargo install grcov
 
-      # RUn tests
+      # Run tests
 
-      - name: Setup sqlx
+      - name: Setup test database
         run: sqlx database setup
 
       - name: Build and test
@@ -63,7 +61,7 @@ jobs:
           cargo build
           cargo test
 
-      - name: Lint
+      - name: Run clippy
         env:
           RUSTFLAGS: "-Cinstrument-coverage"
         run: |
