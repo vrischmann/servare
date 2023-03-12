@@ -2,7 +2,7 @@ use crate::configuration::JobConfig;
 use crate::domain::UserId;
 use crate::feed::{find_favicon, FeedId, ParsedFeed};
 use crate::fetch_bytes;
-use crate::shutdown::Shutdown;
+use crate::run_group::Shutdown;
 use blake2::{Blake2b512, Digest};
 use feed_rs::model::Entry as RawFeedEntry;
 use serde::{Deserialize, Serialize};

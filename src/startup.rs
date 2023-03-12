@@ -1,6 +1,6 @@
 use crate::configuration::{ApplicationConfig, DatabaseConfig, SessionConfig, TEMConfig};
+use crate::run_group::Shutdown;
 use crate::sessions::{CleanupConfig as SessionStoreCleanupConfig, PgSessionStore};
-use crate::shutdown::Shutdown;
 use crate::{routes::*, tem};
 use actix_session::SessionMiddleware;
 use actix_web::{cookie, dev::Server};

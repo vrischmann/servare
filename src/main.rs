@@ -4,33 +4,11 @@ use servare::authentication::create_user;
 use servare::configuration::{get_configuration, Config};
 use servare::domain::UserEmail;
 use servare::job::JobRunner;
-use servare::shutdown::Shutdown;
+use servare::run_group::RunGroup;
 use servare::startup::get_connection_pool;
 use servare::startup::Application;
 use servare::telemetry;
-use tracing::{debug, error, info, trace};
-
-async fn shutdown_signal() {
-    let ctrl_c = async {
-        tokio::signal::ctrl_c()
-            .await
-            .expect("failed to install Ctrl+C handler");
-    };
-
-    let terminate = async {
-        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-            .expect("failed to install signal handler")
-            .recv()
-            .await;
-    };
-
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = terminate => {},
-    }
-
-    debug!("signal received, starting graceful shutdown");
-}
+use tracing::{error, info};
 
 async fn run_serve(config: Config, _matches: &clap::ArgMatches) -> anyhow::Result<()> {
     // Setup
@@ -68,37 +46,11 @@ async fn run_serve(config: Config, _matches: &clap::ArgMatches) -> anyhow::Resul
     // Finally start everything
     //
 
-    // Used for shutdown notinfications
-    let (notify_shutdown_sender, _) = tokio::sync::broadcast::channel(2);
-
-    let app_shutdown = Shutdown::new(notify_shutdown_sender.subscribe());
-    let job_runner_shutdown = Shutdown::new(notify_shutdown_sender.subscribe());
-
-    let mut futures = tokio::task::JoinSet::new();
-    futures.spawn(app.run(app_shutdown));
-    futures.spawn(job_runner.run(job_runner_shutdown));
-    futures.spawn(async move {
-        shutdown_signal().await;
-
-        trace!("got shutdown signal");
-        let _ = notify_shutdown_sender.send(())?;
-        trace!("shutdown notification sent");
-
-        Ok(())
-    });
-
-    // At this point both the application and job runner are running; wait indefinitely for the
-    // join set to return anything
-
-    while let Some(result) = futures.join_next().await {
-        // First ? operator for the future returned by spawn()
-        // Second ? operator for the Result returned by the run() methods.
-        result??;
-
-        trace!("future is done");
-    }
-
-    trace!("shutdown complete");
+    RunGroup::new()
+        .run(|shutdown| app.run(shutdown))
+        .run(|shutdown| job_runner.run(shutdown))
+        .start()
+        .await?;
 
     Ok(())
 }

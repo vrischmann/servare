@@ -6,7 +6,7 @@ use fake::Fake;
 use once_cell::sync::Lazy;
 use servare::configuration::get_configuration;
 use servare::domain::UserId;
-use servare::shutdown::Shutdown;
+use servare::run_group::Shutdown;
 use servare::startup::Application;
 use servare::startup::{get_connection_pool, get_tem_client};
 use servare::{telemetry, tem};
