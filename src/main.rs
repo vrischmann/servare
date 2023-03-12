@@ -8,7 +8,7 @@ use servare::shutdown::Shutdown;
 use servare::startup::get_connection_pool;
 use servare::startup::Application;
 use servare::telemetry;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, trace};
 
 async fn shutdown_signal() {
     let ctrl_c = async {
@@ -66,25 +66,33 @@ async fn run_serve(config: Config, _matches: &clap::ArgMatches) -> anyhow::Resul
     let (notify_shutdown_sender, _) = tokio::sync::broadcast::channel(2);
 
     let app_shutdown = Shutdown::new(notify_shutdown_sender.subscribe());
-    let app_future = tokio::task::spawn(app.run(app_shutdown));
-
     let job_runner_shutdown = Shutdown::new(notify_shutdown_sender.subscribe());
-    let job_runner_future = tokio::task::spawn(job_runner.run(job_runner_shutdown));
 
-    // At this point both the application and job runner are running; wait indefinitely for a shutdown notification
+    let mut futures = tokio::task::JoinSet::new();
+    futures.spawn(app.run(app_shutdown));
+    futures.spawn(job_runner.run(job_runner_shutdown));
+    futures.spawn(async move {
+        shutdown_signal().await;
 
-    let shutdown = shutdown_signal();
+        trace!("got shutdown signal");
+        let _ = notify_shutdown_sender.send(())?;
+        trace!("shutdown notification sent");
 
-    // Spawn a task that will wait for a shutdown signal and the notify all listeners
-    tokio::spawn(async move {
-        shutdown.await;
-        let _ = notify_shutdown_sender.send(()).unwrap();
+        Ok(())
     });
 
-    // First ? operator for the future returned by spawn()
-    // Second ? operator for the Result returned by the run() methods.
-    app_future.await??;
-    job_runner_future.await??;
+    // At this point both the application and job runner are running; wait indefinitely for the
+    // join set to return anything
+
+    while let Some(result) = futures.join_next().await {
+        // First ? operator for the future returned by spawn()
+        // Second ? operator for the Result returned by the run() methods.
+        result??;
+
+        trace!("future is done");
+    }
+
+    trace!("shutdown complete");
 
     Ok(())
 }

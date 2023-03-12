@@ -17,6 +17,9 @@ pub mod tem;
 #[cfg(test)]
 pub mod tests;
 
+/// The [`Result`] type used by the top-level `run` functions (like [`crate::job::JobRunner`]).
+pub type RunResult = Result<(), anyhow::Error>;
+
 pub fn error_chain_fmt(err: &impl std::error::Error, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     writeln!(f, "{}\n", err)?;
     let mut current = err.source();
