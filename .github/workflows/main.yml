@@ -35,18 +35,20 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
+      # Install toolchain
+
       - run: |
           rustup set auto-self-update disable
           rustup toolchain install stable --profile minimal --component llvm-tools-preview
 
       - uses: vrischmann/rust-cache@v2
 
-      #
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --no-default-features --features rustls,postgres
+      - name: Install grcov
+        run: cargo install grcov
 
-      - name: Install tools
-        run: |
-          cargo install sqlx-cli --no-default-features --features rustls,postgres || true
-          cargo install grcov || true
+      # RUn tests
 
       - name: Setup sqlx
         run: sqlx database setup
