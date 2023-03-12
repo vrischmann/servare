@@ -1,6 +1,7 @@
 use crate::configuration::{ApplicationConfig, DatabaseConfig, SessionConfig, TEMConfig};
 use crate::sessions::{CleanupConfig as SessionStoreCleanupConfig, PgSessionStore};
 use crate::shutdown::Shutdown;
+use crate::RunResult;
 use crate::{routes::*, tem};
 use actix_session::SessionMiddleware;
 use actix_web::{cookie, dev::Server};
@@ -79,7 +80,7 @@ impl Application {
         Ok(Application { port, server })
     }
 
-    pub async fn run(self, mut shutdown: Shutdown) -> Result<(), Error> {
+    pub async fn run(self, mut shutdown: Shutdown) -> RunResult {
         tokio::select! {
             _ = shutdown.recv() => {
                     info!("application shutting down");
