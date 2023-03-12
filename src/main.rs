@@ -43,6 +43,8 @@ async fn run_serve(config: Config, _matches: &clap::ArgMatches) -> anyhow::Resul
     telemetry::init_global_default(subscriber);
 
     //
+    // Build the application
+    //
 
     let app_pool = get_connection_pool(&config.database).await?;
     let app = Application::build(&config.application, &config.session, app_pool)?;
@@ -56,11 +58,15 @@ async fn run_serve(config: Config, _matches: &clap::ArgMatches) -> anyhow::Resul
     );
 
     //
+    // Build the job runner
+    //
 
     let job_runner_pool = get_connection_pool(&config.database).await?;
     let job_runner = JobRunner::new(config.job, job_runner_pool)?;
 
+    //
     // Finally start everything
+    //
 
     // Used for shutdown notinfications
     let (notify_shutdown_sender, _) = tokio::sync::broadcast::channel(2);
