@@ -1,8 +1,8 @@
 use crate::configuration::JobConfig;
 use crate::domain::UserId;
 use crate::feed::{find_favicon, FeedId, ParsedFeed};
+use crate::fetch_bytes;
 use crate::shutdown::Shutdown;
-use crate::{fetch_bytes, RunResult};
 use blake2::{Blake2b512, Digest};
 use feed_rs::model::Entry as RawFeedEntry;
 use serde::{Deserialize, Serialize};
@@ -114,7 +114,7 @@ impl JobRunner {
         })
     }
 
-    pub async fn run(mut self, mut shutdown: Shutdown) -> RunResult {
+    pub async fn run(mut self, mut shutdown: Shutdown) -> anyhow::Result<()> {
         let mut interval = tokio::time::interval(self.config.run_interval());
 
         'outer_loop: loop {
