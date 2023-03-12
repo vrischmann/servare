@@ -6,7 +6,8 @@ use fake::Fake;
 use once_cell::sync::Lazy;
 use servare::configuration::get_configuration;
 use servare::domain::UserId;
-use servare::run_group::Shutdown;
+use servare::job::JobRunner;
+use servare::run_group::RunGroup;
 use servare::startup::Application;
 use servare::startup::{get_connection_pool, get_tem_client};
 use servare::{telemetry, tem};
@@ -95,12 +96,12 @@ impl TestUser {
     }
 }
 
+/// TestApp is a test harness for integration testing of Servare.
 pub struct TestApp {
     pub address: String,
     pub port: u16,
     pub pool: PgPool,
     pub http_client: reqwest::Client,
-
     pub email_server: MockServer,
     pub email_client: tem::Client,
 
@@ -176,27 +177,43 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
     configuration.application.port = 0;
     configuration.tem.base_url = email_server.uri();
 
-    // Build the test email client
+    //
+    // Build the test email client and test HTTP client
+    //
+
     let email_client = get_tem_client(&configuration.tem).expect("Failed to get TEM client");
-
-    // Build and start the application
-    let app_pool = pool.clone();
-    let app = Application::build(&configuration.application, &configuration.session, app_pool)
-        .expect("Failed to build application");
-    let app_port = app.port;
-
-    // Start the app
-    let (notify_shutdown_sender, _) = tokio::sync::broadcast::channel(1);
-    let shutdown = Shutdown::new(notify_shutdown_sender.subscribe());
-
-    #[allow(clippy::let_underscore_future)]
-    let _ = tokio::spawn(app.run(shutdown));
 
     let http_client = reqwest::Client::builder()
         .redirect(reqwest::redirect::Policy::none())
         .cookie_store(true)
         .build()
         .expect("Failed to build HTTP client");
+
+    //
+    // Build the application and job runner
+    //
+
+    let app_pool = pool.clone();
+    let app = Application::build(&configuration.application, &configuration.session, app_pool)
+        .expect("Failed to build application");
+    let app_port = app.port;
+
+    let job_pool = pool.clone();
+    let job_runner =
+        JobRunner::new(configuration.job, job_pool).expect("Failed to build job runner");
+
+    //
+    // Run everything in a run group
+    //
+
+    let run_group = RunGroup::new()
+        .run(|shutdown| app.run(shutdown))
+        .run(|shutdown| job_runner.run(shutdown));
+
+    #[allow(clippy::let_underscore_future)]
+    let _ = tokio::spawn(run_group.start());
+
+    // Build the test harness
 
     let test_app = TestApp {
         address: format!("http://127.0.0.1:{}", app_port),
