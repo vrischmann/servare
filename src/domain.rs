@@ -1,3 +1,4 @@
+use crate::impl_typed_uuid;
 use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -6,18 +7,7 @@ use validator::validate_email;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct UserId(pub Uuid);
-
-impl Default for UserId {
-    fn default() -> Self {
-        Self(Uuid::new_v4())
-    }
-}
-
-impl fmt::Display for UserId {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        self.0.fmt(f)
-    }
-}
+impl_typed_uuid!(UserId);
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct UserEmail(pub String);
