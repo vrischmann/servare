@@ -4,7 +4,7 @@ use std::fmt;
 use uuid::Uuid;
 use validator::validate_email;
 
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Deserialize, Serialize)]
 pub struct UserId(pub Uuid);
 
 impl Default for UserId {
