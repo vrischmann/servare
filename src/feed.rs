@@ -155,7 +155,7 @@ pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
 )]
 pub async fn insert_feed(
     pool: &PgPool,
-    user_id: &UserId,
+    user_id: UserId,
     feed: &ParsedFeed,
 ) -> Result<FeedId, sqlx::Error> {
     // TODO(vincent): use a proper custom error type ?
@@ -182,7 +182,7 @@ pub async fn insert_feed(
 }
 
 #[tracing::instrument(name = "Get all feeds", skip(executor))]
-pub async fn get_all_feeds<'e, E>(executor: E, user_id: &UserId) -> Result<Vec<Feed>, anyhow::Error>
+pub async fn get_all_feeds<'e, E>(executor: E, user_id: UserId) -> Result<Vec<Feed>, anyhow::Error>
 where
     E: sqlx::PgExecutor<'e>,
 {
@@ -227,7 +227,7 @@ where
 #[tracing::instrument(name = "Get feed", skip(executor))]
 pub async fn get_feed<'e, E>(
     executor: E,
-    user_id: &UserId,
+    user_id: UserId,
     feed_id: &FeedId,
 ) -> Result<Option<Feed>, anyhow::Error>
 where
@@ -283,7 +283,7 @@ where
 )]
 pub async fn get_feed_favicon(
     pool: &PgPool,
-    user_id: &UserId,
+    user_id: UserId,
     feed_id: &FeedId,
 ) -> Result<Option<Vec<u8>>, anyhow::Error> {
     let result = sqlx::query!(
@@ -350,7 +350,7 @@ pub async fn find_favicon(client: &reqwest::Client, url: &Url) -> Option<Url> {
 )]
 pub async fn get_feed_entries<'e, E>(
     executor: E,
-    user_id: &UserId,
+    user_id: UserId,
     feed_id: &FeedId,
 ) -> Result<Vec<FeedEntry>, anyhow::Error>
 where
@@ -407,7 +407,7 @@ where
 )]
 pub async fn get_feed_entry<'e, E>(
     executor: E,
-    user_id: &UserId,
+    user_id: UserId,
     feed_id: &FeedId,
     entry_id: &FeedEntryId,
 ) -> Result<Option<FeedEntry>, anyhow::Error>
@@ -467,7 +467,7 @@ where
 )]
 pub async fn get_unread_entries<'e, E>(
     executor: E,
-    user_id: &UserId,
+    user_id: UserId,
 ) -> Result<Vec<FeedEntry>, anyhow::Error>
 where
     E: sqlx::PgExecutor<'e>,
@@ -517,7 +517,7 @@ where
 )]
 pub async fn mark_feed_entry_as_read<'e, E>(
     executor: E,
-    user_id: &UserId,
+    user_id: UserId,
     feed_id: &FeedId,
     entry_id: &FeedEntryId,
 ) -> Result<(), anyhow::Error>
@@ -551,7 +551,7 @@ where
 /// This function will return an error if there's a SQL error.
 pub async fn feed_with_url_exists<'e, E>(
     executor: E,
-    user_id: &UserId,
+    user_id: UserId,
     url: &Url,
 ) -> Result<bool, anyhow::Error>
 where

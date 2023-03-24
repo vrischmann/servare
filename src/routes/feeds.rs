@@ -69,7 +69,7 @@ pub async fn handle_feeds(
     //
 
     // TODO(vincent): can we handle this better ?
-    let original_feeds = get_all_feeds(pool.as_ref(), &user_id).await.map_err(e500)?;
+    let original_feeds = get_all_feeds(pool.as_ref(), user_id).await.map_err(e500)?;
 
     let feeds = original_feeds
         .into_iter()
@@ -235,7 +235,7 @@ pub async fn handle_feeds_add(
 
     // 3) Check if the feed already exists
 
-    let feed_exists = feed_with_url_exists(pool.as_ref(), &user_id, &feed.url)
+    let feed_exists = feed_with_url_exists(pool.as_ref(), user_id, &feed.url)
         .await
         .map_err(FeedAddError::Unexpected)
         .map_err(feeds_page_redirect)?;
@@ -245,7 +245,7 @@ pub async fn handle_feeds_add(
 
     // 4) Insert the feed
 
-    let feed_id = insert_feed(&pool, &user_id, &feed)
+    let feed_id = insert_feed(&pool, user_id, &feed)
         .await
         .map_err(Into::<anyhow::Error>::into)
         .context("unable to save feed")
@@ -259,7 +259,7 @@ pub async fn handle_feeds_add(
     if let Err(err) = add_fetch_favicon_job(pool.as_ref(), feed_id, &feed.site_link).await {
         warn!(%err, "unable to add fetch favicon job");
     }
-    if let Err(err) = add_refresh_feed_job(pool.as_ref(), &user_id, feed_id, feed.url).await {
+    if let Err(err) = add_refresh_feed_job(pool.as_ref(), user_id, feed_id, feed.url).await {
         warn!(%err, "unable to add refresh feed job");
     }
 
@@ -341,13 +341,13 @@ pub async fn handle_feeds_refresh(
         .map_err(FeedRefreshError::Unexpected)
         .map_err(feeds_page_redirect)?;
 
-    let feeds = get_all_feeds(&mut tx, &user_id)
+    let feeds = get_all_feeds(&mut tx, user_id)
         .await
         .map_err(FeedRefreshError::Unexpected)
         .map_err(feeds_page_redirect)?;
 
     for feed in feeds {
-        add_refresh_feed_job(pool.as_ref(), &user_id, feed.id, feed.url)
+        add_refresh_feed_job(pool.as_ref(), user_id, feed.id, feed.url)
             .await
             .map_err(FeedRefreshError::Unexpected)
             .map_err(feeds_page_redirect)?;
@@ -393,7 +393,7 @@ pub async fn handle_feed_favicon(
         .record("user_id", &tracing::field::display(&user_id))
         .record("feed_id", &tracing::field::display(&feed_id));
 
-    let favicon = get_feed_favicon(&pool, &user_id, &feed_id)
+    let favicon = get_feed_favicon(&pool, user_id, &feed_id)
         .await
         .map_err(e500)?;
 
@@ -491,7 +491,7 @@ pub async fn handle_feed_entries(
 
     // 1) Get the feed data
 
-    let feed = get_feed(&mut tx, &user_id, &feed_id)
+    let feed = get_feed(&mut tx, user_id, &feed_id)
         .await
         .map_err(FeedEntriesError::Unexpected)
         .map_err(feeds_page_redirect)?;
@@ -502,7 +502,7 @@ pub async fn handle_feed_entries(
 
     // 2) Get the feed entries
 
-    let raw_entries = get_feed_entries(&mut tx, &user_id, &feed_id)
+    let raw_entries = get_feed_entries(&mut tx, user_id, &feed_id)
         .await
         .map_err(FeedEntriesError::Unexpected)
         .map_err(feeds_page_redirect)?;
@@ -597,7 +597,7 @@ pub async fn handle_feed_entry(
 
     // 1) Get the feed data
 
-    let feed = get_feed(&mut tx, &user_id, &feed_id)
+    let feed = get_feed(&mut tx, user_id, &feed_id)
         .await
         .map_err(FeedEntryError::Unexpected)
         .map_err(feeds_page_redirect)?;
@@ -608,7 +608,7 @@ pub async fn handle_feed_entry(
 
     // 1) Get the feed entry
 
-    let entry = get_feed_entry(&mut tx, &user_id, &feed_id, &entry_id)
+    let entry = get_feed_entry(&mut tx, user_id, &feed_id, &entry_id)
         .await
         .map_err(FeedEntryError::Unexpected)
         .map_err(|err| feed_page_redirect(err, feed_id))?;
@@ -619,7 +619,7 @@ pub async fn handle_feed_entry(
 
     // 2) Set its read date
 
-    mark_feed_entry_as_read(&mut tx, &user_id, &feed_id, &entry_id)
+    mark_feed_entry_as_read(&mut tx, user_id, &feed_id, &entry_id)
         .await
         .map_err(FeedEntryError::Unexpected)
         .map_err(|err| feed_page_redirect(err, feed_id))?;

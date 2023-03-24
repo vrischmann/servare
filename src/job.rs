@@ -282,7 +282,7 @@ struct RefreshFeedJobData {
 )]
 pub async fn add_refresh_feed_job<'e, E>(
     executor: E,
-    user_id: &UserId,
+    user_id: UserId,
     feed_id: FeedId,
     feed_url: Url,
 ) -> anyhow::Result<()>
@@ -292,7 +292,7 @@ where
     add_job(
         executor,
         Job::RefreshFeed(RefreshFeedJobData {
-            user_id: user_id.clone(),
+            user_id,
             feed_id,
             feed_url,
         }),
@@ -349,7 +349,7 @@ async fn run_refresh_feed_job(
     for entry in feed_entries {
         let entry = ParsedFeedEntry::from_raw_feed_entry(entry);
 
-        if feed_entry_with_external_id_exists(&mut tx, &data.user_id, &entry.external_id).await? {
+        if feed_entry_with_external_id_exists(&mut tx, data.user_id, &entry.external_id).await? {
             continue;
         }
 
@@ -600,7 +600,7 @@ where
 /// This function will return an error if there's a SQL error.
 async fn feed_entry_with_external_id_exists<'e, E>(
     executor: E,
-    user_id: &UserId,
+    user_id: UserId,
     external_id: &str,
 ) -> Result<bool, sqlx::Error>
 where
@@ -667,7 +667,7 @@ mod tests {
 
         let user_id = create_user(&pool).await;
         let feed_id =
-            create_feed(&pool, &user_id, &mock_url.join("/feed").unwrap(), &mock_url).await;
+            create_feed(&pool, user_id, &mock_url.join("/feed").unwrap(), &mock_url).await;
 
         // Run the job
 
@@ -682,7 +682,7 @@ mod tests {
 
         // Check the result
 
-        let favicon = get_feed_favicon(&pool, &user_id, &feed_id).await.unwrap();
+        let favicon = get_feed_favicon(&pool, user_id, &feed_id).await.unwrap();
         assert!(favicon.is_some());
         assert_eq!(fake_icon_data, &favicon.unwrap()[..]);
     }
