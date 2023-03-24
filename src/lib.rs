@@ -51,7 +51,7 @@ macro_rules! debug_with_error_chain {
 }
 
 #[macro_export]
-macro_rules! typed_uuid {
+macro_rules! impl_typed_uuid {
     ($t:ident) => {
         impl From<uuid::Uuid> for $t {
             fn from(id: uuid::Uuid) -> Self {

@@ -65,7 +65,7 @@ pub async fn create_user(pool: &PgPool) -> UserId {
 /// # Panics
 ///
 /// Panics if any step in the user creation fail.
-pub async fn create_feed(pool: &PgPool, user_id: &UserId, url: &Url, site_link: &Url) -> FeedId {
+pub async fn create_feed(pool: &PgPool, user_id: UserId, url: &Url, site_link: &Url) -> FeedId {
     let title = FakerSentence(4..15).fake();
     let description = FakerParagraph(1..40).fake();
 

@@ -75,7 +75,7 @@ pub async fn handle_unread(
 
     // Fetch the unread entries
 
-    let original_feed_entries = get_unread_entries(pool.as_ref(), &user_id)
+    let original_feed_entries = get_unread_entries(pool.as_ref(), user_id)
         .await
         .map_err(UnreadError::Unexpected)
         .map_err(e500)?;
