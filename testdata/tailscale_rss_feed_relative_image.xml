@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Blog on Tailscale</title>
+    <link>https://tailscale.com/blog/</link>
+    <description>Recent content in Blog on Tailscale</description>
+    <language>en-US</language>
+    <lastBuildDate>Tue, 13 Apr 2021 23:22:03 +0000</lastBuildDate>
+
+	<atom:link href="https://tailscale.com/blog/index.xml" rel="self" type="application/rss+xml" />
+
+
+    <item>
+      <title>Tailscale actions for iOS and macOS Shortcuts</title>
+
+
+      <link>https://tailscale.com/blog/ios-macos-shortcuts/</link>
+      <pubDate>Wed, 25 Jan 2023 00:00:00 +0000</pubDate>
+      <author>Mihai Parparita</author>
+      <guid>https://tailscale.com/blog/ios-macos-shortcuts/</guid>
+      <description>&lt;p&gt;End-user programming and automation has a long history on Apple’s platforms. It began with &lt;a href=&#34;https://en.wikipedia.org/wiki/Integer_BASIC&#34;&gt;BASIC&lt;/a&gt; being included in the ROM of the Apple II, continued in the 1980s with &lt;a href=&#34;https://en.wikipedia.org/wiki/HyperCard&#34;&gt;HyperCard&lt;/a&gt;, and was further expanded with &lt;a href=&#34;https://en.wikipedia.org/wiki/AppleScript&#34;&gt;AppleScript&lt;/a&gt; in the ’90s and &lt;a href=&#34;https://en.wikipedia.org/wiki/List_of_macOS_built-in_apps#Automator&#34;&gt;Automator&lt;/a&gt; in the 2000s. The modern successor to those systems is &lt;a href=&#34;https://en.wikipedia.org/wiki/Shortcuts_(app)&#34;&gt;Shortcuts&lt;/a&gt;, which was launched in iOS 13 and macOS 12. There are a lot of creative uses for Shortcuts, whether it’s &lt;a href=&#34;https://fosstodon.org/@ross/109671294741113929&#34;&gt;quickly detecting allergens&lt;/a&gt;, &lt;a href=&#34;https://www.macstories.net/ios/masto-redirect-a-mastodon-shortcut-to-redirect-profiles-and-posts-to-your-own-instance/&#34;&gt;making the Fediverse easier to use&lt;/a&gt;, or &lt;a href=&#34;https://www.reddit.com/r/shortcuts/comments/uzze1c/shortcuts_has_literally_changed_my_life/&#34;&gt;automating your way into a new job&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;If you were trying to automate Tailscale functionality, you could always use the &lt;a href=&#34;https://tailscale.com/kb/1080/cli/&#34;&gt;Tailscale CLI&lt;/a&gt; with the “Run Shell Script” action — but it would only work on macOS, and would not be particularly user friendly. &lt;strong&gt;Starting with Tailscale v1.36 (and in no small part thanks to&lt;/strong&gt; &lt;a href=&#34;https://github.com/tailscale/tailscale/issues/2504&#34;&gt;&lt;strong&gt;&lt;em&gt;user feedback&lt;/em&gt;&lt;/strong&gt;&lt;/a&gt;&lt;strong&gt;!) Tailscale actions can be directly triggered and automated with Shortcuts on iOS and macOS.&lt;/strong&gt; We’ve added actions for managing the connection state, &lt;a href=&#34;https://tailscale.com/kb/1103/exit-nodes/&#34;&gt;using exit nodes&lt;/a&gt;, and &lt;a href=&#34;https://tailscale.com/kb/1225/fast-user-switching/&#34;&gt;switching between profiles&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;See the &lt;a href=&#34;https://tailscale.com/kb/1233/mac-ios-shortcuts/&#34;&gt;documentation&lt;/a&gt; for more details, or read on for some ideas for how you might use Tailscale to (automatically!) make your life easier.&lt;/p&gt;
+&lt;h2 id=&#34;tailscale-dont-leave-home-without-it&#34;&gt;Tailscale: don’t leave home without it&lt;/h2&gt;
+&lt;p&gt;On iOS, shortcuts can be triggered by &lt;a href=&#34;https://support.apple.com/en-gb/guide/shortcuts/apd690170742/ios&#34;&gt;automations&lt;/a&gt;, which include location-based triggers. You can set up an automation whenever you’ve left your house, ensuring that you always have control of how your traffic is routed:&lt;/p&gt;
+&lt;figure class=&#34;image-center&#34;&gt;
+    &lt;img src=&#34;leave-home.png&#34; alt=&#34;Shortcuts automation to turn on Tailscale when leaving an address&#34; style=&#34;max-width: 375px&#34;&gt;
+&lt;/figure&gt;
+&lt;p&gt;As an alternative, you can use a &lt;a href=&#34;https://support.apple.com/en-gb/guide/shortcuts/apd932ff833f/6.0/ios/16.0&#34;&gt;time-based&lt;/a&gt; automation to trigger this, or &lt;a href=&#34;https://support.apple.com/en-gb/guide/shortcuts/apde31e9638b/6.0/ios/16.0&#34;&gt;one based on other factors&lt;/a&gt;, such as joining a specific Wi-Fi network or your battery level.&lt;/p&gt;
+&lt;h2 id=&#34;switch-between-accounts&#34;&gt;Switch between accounts&lt;/h2&gt;
+&lt;p&gt;If you find yourself frequently &lt;a href=&#34;https://tailscale.com/kb/1225/fast-user-switching/?tab=macos#switching-between-accounts&#34;&gt;switching between two tailnets&lt;/a&gt;, you may find the repeated mousing around the submenu tiring. A shortcut can instead turn this into one action:&lt;/p&gt;
+&lt;figure class=&#34;image-center&#34;&gt;
+    &lt;img src=&#34;toggle-accounts.png&#34; alt=&#34;Shortcut to switch between personal and work accounts&#34; style=&#34;max-width: 483px&#34; loading=&#34;lazy&#34;&gt;
+&lt;/figure&gt;
+&lt;p&gt;Once that’s set up, you can &lt;a href=&#34;https://support.apple.com/en-gb/guide/shortcuts-mac/apd163eb9f95/mac#apd94a0e7c32&#34;&gt;bind it to a keyboard shortcut&lt;/a&gt; or launch it from Spotlight for &lt;em&gt;even faster&lt;/em&gt; fast user switching.&lt;/p&gt;
+&lt;h2 id=&#34;toggle-features-from-the-home-screen&#34;&gt;Toggle features from the home screen&lt;/h2&gt;
+&lt;p&gt;On iOS, shortcuts can be added to the home screen for easy access, complete with custom icons. This allows you to have one-tap access to your preferred Tailscale workflows, such as using an exit node.&lt;/p&gt;
+&lt;figure class=&#34;image-center&#34;&gt;
+    &lt;img src=&#34;toggle-exit-node.png&#34; alt=&#34;Shortcut to toggle the use of an exit node&#34; style=&#34;max-width: 375px&#34; loading=&#34;lazy&#34; class=&#34;mr-2&#34;&gt;
+    &lt;img src=&#34;home-screen-icons.jpeg&#34; alt=&#34;Tailscale shortcuts as home screen icon&#34; style=&#34;max-width: 375px&#34; loading=&#34;lazy&#34;&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;announce-status&#34;&gt;Announce status&lt;/h2&gt;
+&lt;p&gt;You can use the &lt;a href=&#34;https://tailscale.com/kb/1233/mac-ios-shortcuts/#get-status-action&#34;&gt;“Get Status” action&lt;/a&gt; to get a spoken summary of Tailcale announced via Siri.&lt;/p&gt;
+&lt;figure class=&#34;image-center&#34;&gt;
+    &lt;img src=&#34;announce-status-setup.png&#34; alt=&#34;Shortcut to speak the current Tailscale status&#34; style=&#34;max-width: 375px&#34; loading=&#34;lazy&#34; class=&#34;mr-2&#34;&gt;
+    &lt;img src=&#34;announce-status-output.jpeg&#34; alt=&#34;Siri output of the shortcut to speak the current Tailscale status&#34; style=&#34;max-width: 375px&#34; loading=&#34;lazy&#34;&gt;
+&lt;/figure&gt;
+&lt;h2 id=&#34;give-it-a-try&#34;&gt;Give it a try&lt;/h2&gt;
+&lt;p&gt;We’re sure there are a lot more creative uses, and we’re looking forward to seeing how Tailscale plays in this new ecosystem – &lt;a href=&#34;https://tailscale.com/kb/1233/mac-ios-shortcuts/&#34;&gt;read the documentation&lt;/a&gt; to get started setting up shortcuts. Let us know what you automated with shortcuts for Tailscale: mention &lt;a href=&#34;https://twitter.com/tailscale&#34;&gt;@Tailscale&lt;/a&gt; on Twitter and &lt;a href=&#34;https://hachyderm.io/@tailscale@hachyderm.io&#34;&gt;@tailscale@hachyderm.io&lt;/a&gt; on Mastodon, or post on &lt;a href=&#34;https://www.reddit.com/r/tailscale&#34;&gt;/r/tailscale&lt;/a&gt; on Reddit.&lt;/p&gt;
+</description>
+    </item>
+  </channel>
+</rss>
