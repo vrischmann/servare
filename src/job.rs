@@ -1,10 +1,9 @@
 use crate::configuration::JobConfig;
 use crate::domain::UserId;
-use crate::feed::{find_favicon, FeedId, ParsedFeed};
+use crate::feed::{find_favicon, FeedId, ParsedFeed, ParsedFeedEntry};
 use crate::fetch_bytes;
 use crate::run_group::Shutdown;
 use blake2::{Blake2b512, Digest};
-use feed_rs::model::Entry as RawFeedEntry;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
@@ -496,53 +495,6 @@ async fn set_favicon(pool: &PgPool, feed_id: &FeedId, data: Option<&[u8]>) -> an
     Ok(())
 }
 
-/// Holds feed entry data parsed from a [`feed_rs::model::Entry`].
-///
-/// This means this struct should _not_ be used to represent data from the database.
-struct ParsedFeedEntry {
-    external_id: String,
-    url: Option<Url>,
-    title: String,
-    summary: String,
-    authors: Vec<String>,
-}
-
-impl ParsedFeedEntry {
-    fn from_raw_feed_entry(entry: RawFeedEntry) -> Self {
-        let url = None;
-        // TODO(vincent): choose the correct one
-        // let url = entry
-        //     .links
-        //     .into_iter()
-        //     .map(|v| Url::parse(&v.href))
-        //     .last()
-        //     .ok();
-        let title = entry.title.map(|v| v.content).unwrap_or_default();
-        let summary = entry.summary.map(|v| v.content).unwrap_or_default();
-
-        // TODO(vincent): see if there's anything better to do ?
-        let authors: Vec<String> = entry
-            .authors
-            .into_iter()
-            .map(|person| {
-                if let Some(ref email) = person.email {
-                    email.clone()
-                } else {
-                    person.name
-                }
-            })
-            .collect();
-
-        Self {
-            external_id: entry.id,
-            url,
-            title,
-            summary,
-            authors,
-        }
-    }
-}
-
 /// Create a new feed entry in the database for this `user_id`.
 #[tracing::instrument(
     name = "Insert feed entry",
@@ -570,7 +522,7 @@ where
         &entry.title,
         entry.url.as_ref().map(Url::to_string),
         time::OffsetDateTime::now_utc(), // TODO(vincent): use the correct time
-        &entry.authors,                  // TODO(vincent): rename creator to author ?
+        &entry.authors,
         &entry.summary,
     )
     .execute(executor)
@@ -613,8 +565,14 @@ mod tests {
     use super::*;
     use crate::feed::get_feed_favicon;
     use crate::tests::{create_feed, create_user, get_pool};
+    use select::document::Document;
+    use select::predicate::Name;
     use wiremock::matchers::path;
     use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[derive(rust_embed::RustEmbed)]
+    #[folder = "testdata/"]
+    struct TestData;
 
     #[tokio::test]
     async fn fetch_favicon_job_should_work_when_link_exists_in_site() {
@@ -672,5 +630,76 @@ mod tests {
         let favicon = get_feed_favicon(&pool, user_id, &feed_id).await.unwrap();
         assert!(favicon.is_some());
         assert_eq!(fake_icon_data, &favicon.unwrap()[..]);
+    }
+
+    #[tokio::test]
+    async fn image_links_in_summary_should_be_absolute() {
+        let feed_data = TestData::get("tailscale_rss_feed_relative_image.xml")
+            .unwrap()
+            .data;
+
+        let pool = get_pool().await;
+        let http_client = reqwest::Client::new();
+
+        // Setup a mock server that:
+        // * responds with a XML feed
+
+        let mock_server = MockServer::start().await;
+        let mock_uri = mock_server.uri();
+        let mock_url = Url::parse(&mock_uri).unwrap();
+
+        Mock::given(path("/"))
+            .respond_with(ResponseTemplate::new(200).set_body_raw(feed_data, "text/html"))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        // Create a test user and feed
+
+        let user_id = create_user(&pool).await;
+        let feed_id =
+            create_feed(&pool, user_id, &mock_url.join("/feed").unwrap(), &mock_url).await;
+
+        // Run the job
+
+        let data = RefreshFeedJobData {
+            user_id,
+            feed_id,
+            feed_url: mock_url,
+        };
+
+        run_refresh_feed_job(&http_client, &pool, data)
+            .await
+            .unwrap();
+
+        // Check the result
+
+        let records = sqlx::query!(
+            r#"
+            SELECT summary FROM feed_entries WHERE feed_id = $1
+            "#,
+            &feed_id.0,
+        )
+        .fetch_all(&pool)
+        .await
+        .expect("unable to get the feed entries");
+
+        assert_eq!(records.len(), 1);
+
+        // Find and check all images in the summary
+
+        let summary = &records[0].summary;
+
+        let document = Document::from(summary.as_str());
+
+        for image in document.find(Name("img")) {
+            let image_src = image.attr("src").unwrap_or_default();
+
+            println!("image src: {:?}", image_src);
+
+            assert!(image_src.starts_with("http"));
+        }
+
+        // println!("document: {:?}", document);
     }
 }
