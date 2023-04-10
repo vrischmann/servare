@@ -42,6 +42,7 @@ pub struct Feed {
 }
 
 impl Feed {
+    // TODO(vincent): should site_link be a Url ?
     pub fn site_link_as_url(&self) -> Option<Url> {
         Url::parse(&self.site_link).ok()
     }
@@ -86,6 +87,11 @@ impl ParsedFeed {
             description: feed.description.map(|v| v.content).unwrap_or_default(),
         }
     }
+
+    // TODO(vincent): should this be a Url ?
+    pub fn site_link_as_url(&self) -> Option<Url> {
+        Url::parse(&self.site_link).ok()
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -114,9 +120,14 @@ pub enum FoundFeed {
 #[tracing::instrument(name = "Find feed", skip(url, data))]
 pub fn find_feed(url: &Url, data: &[u8]) -> Result<FoundFeed, FindError> {
     // Try to parse as a feed
-    if let Ok(feed) = feed_rs::parser::parse(data) {
-        event!(Level::INFO, "found a raw feed");
-        return Ok(FoundFeed::Raw(feed));
+    match feed_rs::parser::parse(data) {
+        Ok(feed) => {
+            event!(Level::INFO, "found a raw feed");
+            return Ok(FoundFeed::Raw(feed));
+        }
+        Err(err) => {
+            event!(Level::WARN, %err, "unable to find a raw feed");
+        }
     }
 
     // If not a valid feed, try to parse as a HTML document to find a link
@@ -579,7 +590,7 @@ where
 /// # Errors
 ///
 /// This function will return an error if the URL is invalid somehow.
-fn parse_url_from_record(s: Option<String>) -> Result<Option<Url>, url::ParseError> {
+pub fn parse_url_from_record(s: Option<String>) -> Result<Option<Url>, url::ParseError> {
     // This ugly thing goes from:
     // Option<String> to Option<&str> to Result<Option<Url>, _>
 
