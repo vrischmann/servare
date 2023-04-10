@@ -8,6 +8,7 @@ pub mod domain;
 mod feed;
 pub mod html;
 pub mod job;
+mod parsed_feed;
 mod routes;
 pub mod run_group;
 mod sessions;

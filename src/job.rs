@@ -1,10 +1,9 @@
 use crate::configuration::JobConfig;
 use crate::domain::UserId;
-use crate::feed::{find_favicon, FeedId, ParsedFeed};
+use crate::feed::{find_favicon, FeedId, ParsedFeed, ParsedFeedEntry};
 use crate::fetch_bytes;
 use crate::run_group::Shutdown;
 use blake2::{Blake2b512, Digest};
-use feed_rs::model::Entry as RawFeedEntry;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
@@ -496,52 +495,6 @@ async fn set_favicon(pool: &PgPool, feed_id: &FeedId, data: Option<&[u8]>) -> an
     Ok(())
 }
 
-/// Holds feed entry data parsed from a [`feed_rs::model::Entry`].
-///
-/// This means this struct should _not_ be used to represent data from the database.
-struct ParsedFeedEntry {
-    external_id: String,
-    url: Option<Url>,
-    title: String,
-    summary: String,
-    authors: Vec<String>,
-}
-
-impl ParsedFeedEntry {
-    fn from_raw_feed_entry(entry: RawFeedEntry) -> Self {
-        let url = entry
-            .links
-            .iter()
-            .flat_map(|v| Url::parse(&v.href).ok())
-            .take(1)
-            .last();
-
-        let title = entry.title.map(|v| v.content).unwrap_or_default();
-        let summary = entry.summary.map(|v| v.content).unwrap_or_default();
-
-        // TODO(vincent): see if there's anything better to do ?
-        let authors: Vec<String> = entry
-            .authors
-            .into_iter()
-            .map(|person| {
-                if let Some(ref email) = person.email {
-                    email.clone()
-                } else {
-                    person.name
-                }
-            })
-            .collect();
-
-        Self {
-            external_id: entry.id,
-            url,
-            title,
-            summary,
-            authors,
-        }
-    }
-}
-
 /// Create a new feed entry in the database for this `user_id`.
 #[tracing::instrument(
     name = "Insert feed entry",
@@ -569,7 +522,7 @@ where
         &entry.title,
         entry.url.as_ref().map(Url::to_string),
         time::OffsetDateTime::now_utc(), // TODO(vincent): use the correct time
-        &entry.authors,                  // TODO(vincent): rename creator to author ?
+        &entry.authors,
         &entry.summary,
     )
     .execute(executor)
