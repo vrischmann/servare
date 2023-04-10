@@ -509,14 +509,13 @@ struct ParsedFeedEntry {
 
 impl ParsedFeedEntry {
     fn from_raw_feed_entry(entry: RawFeedEntry) -> Self {
-        let url = None;
-        // TODO(vincent): choose the correct one
-        // let url = entry
-        //     .links
-        //     .into_iter()
-        //     .map(|v| Url::parse(&v.href))
-        //     .last()
-        //     .ok();
+        let url = entry
+            .links
+            .iter()
+            .flat_map(|v| Url::parse(&v.href).ok())
+            .take(1)
+            .last();
+
         let title = entry.title.map(|v| v.content).unwrap_or_default();
         let summary = entry.summary.map(|v| v.content).unwrap_or_default();
 
