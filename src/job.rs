@@ -14,7 +14,8 @@ use tracing::{error, event, info, Level};
 use url::Url;
 use uuid::Uuid;
 
-struct JobId(pub Uuid);
+#[derive(Clone)]
+pub struct JobId(pub Uuid);
 
 impl Default for JobId {
     fn default() -> Self {
@@ -26,49 +27,6 @@ impl fmt::Display for JobId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
     }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum AddError {
-    #[error(transparent)]
-    SQLx(#[from] sqlx::Error),
-}
-
-/// Add a job to the job queue.
-///
-/// Each job has a key associated
-///
-/// # Errors
-///
-/// This function will return an error if .
-#[tracing::instrument(
-    name = "Add job",
-    skip(executor, job),
-    fields(
-        id = tracing::field::Empty,
-    ),
-)]
-async fn add_job<'e, E>(executor: E, job: Job) -> Result<(), AddError>
-where
-    E: sqlx::PgExecutor<'e>,
-{
-    let job_id = JobId::default();
-
-    tracing::Span::current().record("id", &tracing::field::display(&job_id));
-
-    sqlx::query!(
-        r#"
-        INSERT INTO jobs(id, key, data) VALUES($1, $2, $3)
-        ON CONFLICT DO NOTHING
-        "#,
-        &job_id.0,
-        &job.key(),
-        json!(job)
-    )
-    .execute(executor)
-    .await?;
-
-    Ok(())
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -142,7 +100,7 @@ impl JobRunner {
     async fn manage_jobs(&mut self) -> anyhow::Result<()> {
         let mut remaining = MANAGE_JOBS_LIMIT;
 
-        add_fetch_favicons_jobs(&self.pool, &mut remaining).await?;
+        create_fetch_favicons_jobs(&self.pool, &mut remaining).await?;
 
         Ok(())
     }
@@ -218,6 +176,22 @@ impl JobRunner {
 }
 
 //
+// Define the job types
+//
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RefreshFeedJobData {
+    user_id: UserId,
+    feed_id: FeedId,
+    feed_url: Url,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct FetchFaviconJobData {
+    user_id: UserId,
+    feed_id: FeedId,
+    site_link: Url,
+}
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "type")]
@@ -255,41 +229,47 @@ impl Job {
 }
 
 //
-// Job: refreshing a feed
+// Public API
 //
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct RefreshFeedJobData {
-    user_id: UserId,
-    feed_id: FeedId,
-    feed_url: Url,
+#[derive(Debug, thiserror::Error)]
+pub enum PostError {
+    #[error(transparent)]
+    SQLx(#[from] sqlx::Error),
 }
 
-/// Add a job to refresh a feed.
-///
-/// # Errors
-///
-/// This function will return an error if:
-/// * `feed_url` is invalid
-/// * There was an error adding the job to the queue
-#[tracing::instrument(
-    name = "Add refresh feed job",
-    skip(executor),
-    fields(
-        feed_id = %feed_id,
-        feed_url = %feed_url,
+type PostResult = Result<JobId, PostError>;
+
+pub async fn post_fetch_favicon_job<'e, E>(
+    executor: E,
+    user_id: UserId,
+    feed_id: FeedId,
+    site_link: Url,
+) -> PostResult
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    post_job(
+        executor,
+        Job::FetchFavicon(FetchFaviconJobData {
+            user_id,
+            feed_id,
+            site_link,
+        }),
     )
-)]
-pub async fn add_refresh_feed_job<'e, E>(
+    .await
+}
+
+pub async fn post_refresh_feed_job<'e, E>(
     executor: E,
     user_id: UserId,
     feed_id: FeedId,
     feed_url: Url,
-) -> anyhow::Result<()>
+) -> PostResult
 where
     E: sqlx::PgExecutor<'e>,
 {
-    add_job(
+    post_job(
         executor,
         Job::RefreshFeed(RefreshFeedJobData {
             user_id,
@@ -297,7 +277,88 @@ where
             feed_url,
         }),
     )
+    .await
+}
+
+/// Add a job to the job queue.
+///
+/// Each job has a key associated
+///
+/// # Errors
+///
+/// This function will return an error if .
+#[tracing::instrument(
+        name = "Add job",
+        skip(executor, job),
+        fields(
+            id = tracing::field::Empty,
+        ),
+    )]
+async fn post_job<'e, E>(executor: E, job: Job) -> Result<JobId, PostError>
+where
+    E: sqlx::PgExecutor<'e>,
+{
+    let job_id = JobId::default();
+
+    tracing::Span::current().record("id", &tracing::field::display(&job_id));
+
+    sqlx::query!(
+        r#"
+            INSERT INTO jobs(id, key, data) VALUES($1, $2, $3)
+            ON CONFLICT DO NOTHING
+            "#,
+        &job_id.0,
+        &job.key(),
+        json!(job)
+    )
+    .execute(executor)
     .await?;
+
+    Ok(job_id)
+}
+
+/// Add as many as `remaining` jobs to fetch the favicon of a feed.
+///
+/// # Errors
+///
+/// This function will return an error if there was an error adding a job to the queue
+#[tracing::instrument(
+    name = "Add fetch favicons jobs",
+    level = "TRACE",
+    skip(pool, remaining)
+)]
+async fn create_fetch_favicons_jobs(pool: &PgPool, remaining: &mut usize) -> anyhow::Result<()> {
+    let records = sqlx::query!(
+        r#"
+            SELECT user_id, id, site_link
+            FROM feeds f
+            WHERE has_favicon IS NULL
+            LIMIT $1
+            "#,
+        *remaining as i64,
+    )
+    .fetch_all(pool)
+    .await?;
+
+    let mut tx = pool.begin().await?;
+
+    for record in records {
+        let user_id = UserId(record.user_id);
+        let feed_id = FeedId(record.id);
+        let site_link = Url::parse(&record.site_link)?;
+
+        post_job(
+            &mut tx,
+            Job::FetchFavicon(FetchFaviconJobData {
+                user_id,
+                feed_id,
+                site_link,
+            }),
+        )
+        .await?;
+    }
+
+    tx.commit().await?;
 
     Ok(())
 }
@@ -361,85 +422,6 @@ async fn run_refresh_feed_job(
     Ok(())
 }
 
-//
-// Job: fetching a favicon
-//
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct FetchFaviconJobData {
-    feed_id: FeedId,
-    site_link: Url,
-}
-
-/// Add a job to fetch the favicon of a feed.
-///
-/// # Errors
-///
-/// This function will return an error if:
-/// * `site_link` is invalid
-/// * There was an error adding the job to the queue
-#[tracing::instrument(
-    name = "Add fetch favicon job",
-    skip(executor),
-    fields(
-        feed_id = %feed_id,
-    ),
-)]
-pub async fn add_fetch_favicon_job<'e, E>(
-    executor: E,
-    feed_id: FeedId,
-    site_link: &str,
-) -> anyhow::Result<()>
-where
-    E: sqlx::PgExecutor<'e>,
-{
-    let site_link = Url::parse(site_link)?;
-
-    add_job(
-        executor,
-        Job::FetchFavicon(FetchFaviconJobData { feed_id, site_link }),
-    )
-    .await?;
-
-    Ok(())
-}
-
-/// Add as many as `remaining` jobs to fetch the favicon of a feed.
-///
-/// # Errors
-///
-/// This function will return an error if there was an error adding a job to the queue
-#[tracing::instrument(
-    name = "Add fetch favicons jobs",
-    level = "TRACE",
-    skip(pool, remaining)
-)]
-async fn add_fetch_favicons_jobs(pool: &PgPool, remaining: &mut usize) -> anyhow::Result<()> {
-    let records = sqlx::query!(
-        r#"
-            SELECT id, site_link
-            FROM feeds f
-            WHERE has_favicon IS NULL
-            LIMIT $1
-            "#,
-        *remaining as i64,
-    )
-    .fetch_all(pool)
-    .await?;
-
-    let mut tx = pool.begin().await?;
-
-    for record in records {
-        let feed_id = FeedId(record.id);
-
-        add_fetch_favicon_job(&mut tx, feed_id, &record.site_link).await?;
-    }
-
-    tx.commit().await?;
-
-    Ok(())
-}
-
 #[tracing::instrument(
     name = "Run fetch favicon job",
     skip(http_client, pool, data),
@@ -453,7 +435,11 @@ async fn run_fetch_favicon_job(
     pool: &PgPool,
     data: FetchFaviconJobData,
 ) -> anyhow::Result<()> {
-    let FetchFaviconJobData { feed_id, site_link } = data;
+    let FetchFaviconJobData {
+        user_id:  _,
+        feed_id,
+        site_link,
+    } = data;
 
     // 1) Find the favicon URL in the site. There might not be any.
 
@@ -672,6 +658,7 @@ mod tests {
         // Run the job
 
         let data = FetchFaviconJobData {
+            user_id,
             feed_id,
             site_link: mock_url,
         };
