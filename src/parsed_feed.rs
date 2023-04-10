@@ -25,16 +25,24 @@ impl ParsedFeed {
         Ok(Self::from_raw_feed(url, raw_feed))
     }
 
-    pub fn from_raw_feed(url: &Url, feed: RawFeed) -> Self {
-        let site_link = feed
-            .links
-            .into_iter()
-            .filter(|link| link.rel.is_none())
-            .map(|link| link.href)
-            .collect::<Vec<String>>()
-            .remove(0);
+    fn get_site_link(feed: &RawFeed) -> Option<String> {
+        let mut site_link = None;
 
-        let site_link_url = Url::parse(&site_link).ok();
+        for link in &feed.links {
+            if link.rel.is_none() {
+                continue;
+            }
+
+            site_link = Some(link.href.clone());
+        }
+
+        site_link
+    }
+
+    pub fn from_raw_feed(url: &Url, feed: RawFeed) -> Self {
+        let site_link_url = Self::get_site_link(&feed)
+            .as_ref()
+            .and_then(|v| Url::parse(v).ok());
 
         ParsedFeed {
             url: url.clone(),
