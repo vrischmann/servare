@@ -14,6 +14,7 @@ use servare::{telemetry, tem};
 use sqlx::PgPool;
 use tracing::Level;
 use tracing_subscriber::filter;
+use url::Url;
 use uuid::Uuid;
 use wiremock::MockServer;
 
@@ -166,6 +167,9 @@ pub async fn spawn_app_with_pool(pool: PgPool) -> TestApp {
     // Enable tracing
     Lazy::force(&TRACING);
 
+    // Cleanup old data
+    truncate_all(pool.clone()).await;
+
     // We mock the minimal needed from the TEM API using wiremock
     let email_server = MockServer::start().await;
 
@@ -244,6 +248,32 @@ pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
         303
     );
     assert_eq!(response.headers().get("Location").unwrap(), location);
+}
+
+pub fn parse_url(url: &str) -> Url {
+    Url::parse(url).unwrap()
+}
+
+async fn truncate_all(pool: PgPool) {
+    sqlx::query!("TRUNCATE jobs CASCADE")
+        .execute(&pool)
+        .await
+        .expect("Failed to truncate all jobs");
+
+    sqlx::query!("TRUNCATE feeds CASCADE")
+        .execute(&pool)
+        .await
+        .expect("Failed to truncate all feeds");
+
+    sqlx::query!("TRUNCATE users CASCADE")
+        .execute(&pool)
+        .await
+        .expect("Failed to truncate all users");
+
+    sqlx::query!("TRUNCATE sessions CASCADE")
+        .execute(&pool)
+        .await
+        .expect("Failed to truncate all sessions");
 }
 
 #[derive(rust_embed::RustEmbed)]
