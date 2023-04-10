@@ -6,7 +6,7 @@ use crate::feed::{
 };
 use crate::feed::{Feed, FeedId, FindError, FoundFeed, ParseError, ParsedFeed};
 use crate::feed::{FeedEntry, FeedEntryId};
-use crate::job::{add_fetch_favicon_job, add_refresh_feed_job};
+use crate::job::{post_fetch_favicon_job, post_refresh_feed_job};
 use crate::routes::FEEDS_PAGE;
 use crate::routes::{e500, error_redirect, get_user_id_or_redirect, see_other};
 use crate::sessions::TypedSession;
@@ -256,10 +256,12 @@ pub async fn handle_feeds_add(
     //
     // Note we don't fail if these return an error, it's only a backgroun job
 
-    if let Err(err) = add_fetch_favicon_job(pool.as_ref(), feed_id, &feed.site_link).await {
-        warn!(%err, "unable to add fetch favicon job");
+    if let Some(url) = feed.site_link_as_url() {
+        if let Err(err) = post_fetch_favicon_job(pool.as_ref(), user_id, feed_id, url).await {
+            warn!(%err, "unable to add fetch favicon job");
+        }
     }
-    if let Err(err) = add_refresh_feed_job(pool.as_ref(), user_id, feed_id, feed.url).await {
+    if let Err(err) = post_refresh_feed_job(pool.as_ref(), user_id, feed_id, feed.url).await {
         warn!(%err, "unable to add refresh feed job");
     }
 
@@ -347,8 +349,9 @@ pub async fn handle_feeds_refresh(
         .map_err(feeds_page_redirect)?;
 
     for feed in feeds {
-        add_refresh_feed_job(pool.as_ref(), user_id, feed.id, feed.url)
+        post_refresh_feed_job(pool.as_ref(), user_id, feed.id, feed.url)
             .await
+            .map_err(Into::<anyhow::Error>::into)
             .map_err(FeedRefreshError::Unexpected)
             .map_err(feeds_page_redirect)?;
     }
