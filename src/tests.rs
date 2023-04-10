@@ -72,7 +72,7 @@ pub async fn create_feed(pool: &PgPool, user_id: UserId, url: &Url, site_link: &
     let feed = ParsedFeed {
         url: url.clone(),
         title,
-        site_link: site_link.to_string(),
+        site_link: Some(site_link.clone()),
         description,
     };
 

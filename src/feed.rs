@@ -35,18 +35,13 @@ pub struct Feed {
     pub id: FeedId,
     pub url: Url,
     pub title: String,
-    pub site_link: String, // TODO(vincent): should this be a Url ?
+    pub site_link: Option<Url>,
     pub description: String,
     pub site_favicon: Option<Vec<u8>>,
     pub added_at: time::OffsetDateTime,
 }
 
-impl Feed {
-    // TODO(vincent): should site_link be a Url ?
-    pub fn site_link_as_url(&self) -> Option<Url> {
-        Url::parse(&self.site_link).ok()
-    }
-}
+impl Feed {}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
@@ -60,7 +55,7 @@ pub enum ParseError {
 pub struct ParsedFeed {
     pub url: Url,
     pub title: String,
-    pub site_link: String, // TODO(vincent): should this be a Url ?
+    pub site_link: Option<Url>,
     pub description: String,
 }
 
@@ -80,17 +75,14 @@ impl ParsedFeed {
             .collect::<Vec<String>>()
             .remove(0);
 
+        let site_link_url = Url::parse(&site_link).ok();
+
         ParsedFeed {
             url: url.clone(),
             title: feed.title.map(|v| v.content).unwrap_or_default(),
-            site_link,
+            site_link: site_link_url,
             description: feed.description.map(|v| v.content).unwrap_or_default(),
         }
-    }
-
-    // TODO(vincent): should this be a Url ?
-    pub fn site_link_as_url(&self) -> Option<Url> {
-        Url::parse(&self.site_link).ok()
     }
 }
 
@@ -180,7 +172,10 @@ pub async fn insert_feed(
         &user_id.0,
         feed.url.to_string(),
         &feed.title,
-        &feed.site_link,
+        feed.site_link
+            .as_ref()
+            .map(|v| v.to_string())
+            .unwrap_or_default(),
         &feed.description,
         time::OffsetDateTime::now_utc(),
     )
@@ -221,11 +216,13 @@ where
             .map_err(Into::<anyhow::Error>::into)
             .context("stored feed URL is invalid")?;
 
+        let site_link = Url::parse(&record.site_link).ok();
+
         feeds.push(Feed {
             id: FeedId(record.id),
             url,
             title: record.title,
-            site_link: record.site_link,
+            site_link,
             description: record.description,
             site_favicon: record.site_favicon,
             added_at: record.added_at,
@@ -268,11 +265,13 @@ where
             .map_err(Into::<anyhow::Error>::into)
             .context("unable to parse the stored feed URL")?;
 
+        let site_link = Url::parse(&record.site_link).ok();
+
         let feed = Feed {
             id: FeedId(record.id),
             url,
             title: record.title,
-            site_link: record.site_link,
+            site_link,
             description: record.description,
             site_favicon: record.site_favicon,
             added_at: record.added_at,
@@ -625,7 +624,7 @@ mod tests {
 
         let feed = ParsedFeed::parse(&url, DATA.as_bytes()).unwrap();
         assert_eq!(feed.title, "Foo");
-        assert_eq!(feed.site_link, "https://example.com/blog/");
+        assert_eq!(feed.site_link, Some(url));
         assert_eq!(feed.description, "Foo");
     }
 
@@ -648,7 +647,7 @@ mod tests {
 
         let feed = ParsedFeed::parse(&url, DATA.as_bytes()).unwrap();
         assert_eq!(feed.title, "Foo");
-        assert_eq!(feed.site_link, "https://example.com/blog/");
+        assert_eq!(feed.site_link, Some(url));
         assert_eq!(feed.description, "Foo");
     }
 
@@ -675,8 +674,10 @@ mod tests {
             FoundFeed::Url(_) => panic!("expected a FoundFeed::Raw"),
         };
 
+        let site_link = feed.site_link.map(|v| v.to_string()).unwrap_or_default();
+
         assert_eq!("Blog on Tailscale", feed.title);
-        assert_eq!("https://tailscale.com/blog/", feed.site_link);
+        assert_eq!("https://tailscale.com/blog/", site_link);
         assert_eq!("Recent content in Blog on Tailscale", feed.description);
     }
 }

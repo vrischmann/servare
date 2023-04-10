@@ -43,7 +43,7 @@ struct FeedForTemplate {
 impl FeedForTemplate {
     fn new(feed: Feed) -> Self {
         Self {
-            site_link: feed.site_link_as_url(),
+            site_link: feed.site_link.clone(),
             has_favicon: feed.site_favicon.is_some(),
             original: feed,
         }
@@ -73,11 +73,7 @@ pub async fn handle_feeds(
 
     let feeds = original_feeds
         .into_iter()
-        .map(|feed| FeedForTemplate {
-            site_link: feed.site_link_as_url(),
-            has_favicon: feed.site_favicon.is_some(),
-            original: feed,
-        })
+        .map(FeedForTemplate::new)
         .collect();
 
     //
@@ -229,7 +225,7 @@ pub async fn handle_feeds_add(
 
     event!(Level::INFO,
         title = %feed.title,
-        site_link = %feed.site_link,
+        site_link = feed.site_link.as_ref().map(|v|v.to_string()).unwrap_or_default(),
         "Fetched feed",
     );
 
@@ -256,7 +252,7 @@ pub async fn handle_feeds_add(
     //
     // Note we don't fail if these return an error, it's only a backgroun job
 
-    if let Some(url) = feed.site_link_as_url() {
+    if let Some(url) = feed.site_link {
         if let Err(err) = post_fetch_favicon_job(pool.as_ref(), user_id, feed_id, url).await {
             warn!(%err, "unable to add fetch favicon job");
         }

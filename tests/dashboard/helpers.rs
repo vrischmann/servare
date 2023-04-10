@@ -14,7 +14,6 @@ use servare::{telemetry, tem};
 use sqlx::PgPool;
 use tracing::Level;
 use tracing_subscriber::filter;
-use url::Url;
 use uuid::Uuid;
 use wiremock::MockServer;
 
@@ -248,10 +247,6 @@ pub fn assert_is_redirect_to(response: &reqwest::Response, location: &str) {
         303
     );
     assert_eq!(response.headers().get("Location").unwrap(), location);
-}
-
-pub fn parse_url(url: &str) -> Url {
-    Url::parse(url).unwrap()
 }
 
 async fn truncate_all(pool: PgPool) {
